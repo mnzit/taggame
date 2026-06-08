@@ -1,5 +1,5 @@
 // Controller UI & Input Logic
-window.submitControllerName = function () {
+window.submitControllerName = async function () {
     const nameInput = document.getElementById('cn-input');
     const v = nameInput.value.trim();
     if (v) {
@@ -8,6 +8,19 @@ window.submitControllerName = function () {
     }
     document.getElementById('controller-name-prompt').classList.add('hidden');
     document.getElementById('controller-name-prompt').classList.remove('flex');
+    
+    // Request fullscreen and lock to landscape
+    try {
+        if (document.documentElement.requestFullscreen) {
+            await document.documentElement.requestFullscreen();
+        }
+        if (screen.orientation && screen.orientation.lock) {
+            await screen.orientation.lock('landscape');
+        }
+    } catch (err) {
+        console.warn("Fullscreen or orientation lock not supported/allowed", err);
+    }
+
     showControllerView();
 };
 
