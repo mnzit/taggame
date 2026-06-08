@@ -124,7 +124,9 @@ class GameEngine {
             inputX: 0,
             isJumping: false,
             grounded: false,
-            stunTimer: 0
+            stunTimer: 0,
+            facingRight: true,
+            walkCycle: 0
         };
         
         // If first player, make them IT
@@ -221,6 +223,15 @@ class GameEngine {
             } else {
                 // Apply horizontal input
                 p.vx = p.inputX * this.moveSpeed;
+                if (p.inputX > 0) p.facingRight = true;
+                if (p.inputX < 0) p.facingRight = false;
+            }
+            
+            // Animation walk cycle
+            if (Math.abs(p.vx) > 0 && p.grounded) {
+                p.walkCycle += dt * 15;
+            } else {
+                p.walkCycle = 0;
             }
             
             // Apply gravity
@@ -379,51 +390,156 @@ class GameEngine {
         // Draw players
         Object.values(this.players).forEach(p => {
             const isIt = p.id === this.itPlayerId;
+            this.drawCharacter(p, isIt);
             
-            if (isIt) {
-                // If on cooldown, blink or show grey-ish red
-                if (this.tagCooldown > 0) {
-                    this.ctx.fillStyle = (Math.floor(performance.now() / 200) % 2 === 0) ? '#ef4444' : '#fca5a5';
-                    this.ctx.shadowBlur = 10;
-                    this.ctx.shadowColor = '#fca5a5';
-                } else {
-                    this.ctx.shadowBlur = 20;
-                    this.ctx.shadowColor = '#ef4444';
-                    this.ctx.fillStyle = '#ef4444'; // Red for IT
-                }
-            } else {
-                this.ctx.shadowBlur = 0;
-                this.ctx.fillStyle = p.color;
-                
-                // If this normal player is stunned (rare, but possible if mechanics change)
-                if (p.stunTimer > 0) {
-                    this.ctx.globalAlpha = 0.5;
-                }
-            }
-            
-            // Draw square
-            this.ctx.fillRect(p.x, p.y, p.width, p.height);
-            this.ctx.globalAlpha = 1.0;
-            
-            // Reset shadow
-            this.ctx.shadowBlur = 0;
-            
-            // Draw Name
-            this.ctx.fillStyle = '#ffffff';
-            this.ctx.font = '14px "Inter"';
-            this.ctx.textAlign = 'center';
-            this.ctx.fillText(p.name, p.x + p.width/2, p.y - 10);
-            
-            // Draw 'IT' tag
+            // Draw 'IT' tag text
             if (isIt) {
                 this.ctx.fillStyle = '#ef4444';
                 this.ctx.font = 'bold 16px "Fredoka"';
                 let text = 'IT!';
                 if (this.tagCooldown > 0) text = 'COOLDOWN';
                 if (p.stunTimer > 0) text = 'FROZEN!';
-                this.ctx.fillText(text, p.x + p.width/2, p.y - 28);
+                this.ctx.fillText(text, p.x + p.width/2 - 10, p.y - 12);
             }
         });
+    }
+
+    drawCharacter(p, isIt) {
+        const cx = p.x + p.width / 2;
+        const cy = p.y + p.height / 2;
+        const time = performance.now();
+        
+        this.ctx.save();
+        this.ctx.translate(cx, cy);
+        
+        // Flip context if facing left
+        if (!p.facingRight) {
+            this.ctx.scale(-1, 1);
+        }
+
+        // Bobbing/breathing animation
+        let bobY = 0;
+        if (p.grounded && p.vx === 0) {
+            bobY = Math.sin(time * 0.005) * 2;
+        } else if (p.grounded && Math.abs(p.vx) > 0) {
+            bobY = Math.abs(Math.sin(p.walkCycle)) * -4;
+        }
+
+        // Draw Legs
+        this.ctx.fillStyle = '#0f172a'; // dark shoes
+        if (p.grounded && Math.abs(p.vx) > 0) {
+            // Running legs
+            const legSwing = Math.sin(p.walkCycle) * 10;
+            this.ctx.beginPath();
+            this.ctx.roundRect(-10 + legSwing, p.height/2 - 10, 8, 12, 4);
+            this.ctx.roundRect(2 - legSwing, p.height/2 - 10, 8, 12, 4);
+            this.ctx.fill();
+        } else if (!p.grounded) {
+            // Jumping legs
+            this.ctx.beginPath();
+            if (p.vy < 0) { // Going up
+                this.ctx.roundRect(-12, p.height/2 - 5, 8, 10, 4);
+                this.ctx.roundRect(4, p.height/2 - 5, 8, 10, 4);
+            } else { // Falling
+                this.ctx.roundRect(-10, p.height/2 - 12, 8, 14, 4);
+                this.ctx.roundRect(2, p.height/2 - 12, 8, 14, 4);
+            }
+            this.ctx.fill();
+        } else {
+            // Idle legs
+            this.ctx.beginPath();
+            this.ctx.roundRect(-10, p.height/2 - 8, 8, 10, 4);
+            this.ctx.roundRect(2, p.height/2 - 8, 8, 10, 4);
+            this.ctx.fill();
+        }
+
+        // Draw Body (Pill shape)
+        this.ctx.fillStyle = p.color;
+        // Body shadow for "IT" state
+        if (isIt) {
+            if (this.tagCooldown > 0) {
+                this.ctx.fillStyle = (Math.floor(time / 200) % 2 === 0) ? '#ef4444' : '#fca5a5';
+                this.ctx.shadowBlur = 10;
+                this.ctx.shadowColor = '#fca5a5';
+            } else {
+                this.ctx.shadowBlur = 20;
+                this.ctx.shadowColor = '#ef4444';
+                this.ctx.fillStyle = '#ef4444';
+            }
+        } else {
+            this.ctx.shadowBlur = 0;
+            if (p.stunTimer > 0) this.ctx.globalAlpha = 0.5;
+        }
+
+        this.ctx.beginPath();
+        const bodyW = 32;
+        const bodyH = 36;
+        this.ctx.roundRect(-bodyW/2, -bodyH/2 + bobY, bodyW, bodyH, 12);
+        this.ctx.fill();
+        
+        this.ctx.shadowBlur = 0; // reset shadow for face
+
+        // Visor/Face Area
+        this.ctx.fillStyle = '#f8fafc'; // white/light blue visor
+        this.ctx.beginPath();
+        this.ctx.roundRect(2, -8 + bobY, 18, 14, 6);
+        this.ctx.fill();
+
+        // Eyes
+        this.ctx.fillStyle = '#0f172a'; // black pupils
+        if (p.stunTimer > 0) {
+            // Dizzy 'X' eyes
+            this.ctx.strokeStyle = '#0f172a';
+            this.ctx.lineWidth = 2;
+            this.ctx.beginPath();
+            this.ctx.moveTo(6, -4 + bobY); this.ctx.lineTo(10, 0 + bobY);
+            this.ctx.moveTo(10, -4 + bobY); this.ctx.lineTo(6, 0 + bobY);
+            this.ctx.moveTo(14, -4 + bobY); this.ctx.lineTo(18, 0 + bobY);
+            this.ctx.moveTo(18, -4 + bobY); this.ctx.lineTo(14, 0 + bobY);
+            this.ctx.stroke();
+        } else if (isIt && this.tagCooldown <= 0) {
+            // Angry eyes
+            this.ctx.beginPath();
+            this.ctx.arc(8, -1 + bobY, 2, 0, Math.PI*2);
+            this.ctx.arc(16, -1 + bobY, 2, 0, Math.PI*2);
+            this.ctx.fill();
+            // Angry eyebrows
+            this.ctx.lineWidth = 2;
+            this.ctx.beginPath();
+            this.ctx.moveTo(4, -6 + bobY); this.ctx.lineTo(10, -3 + bobY);
+            this.ctx.moveTo(20, -6 + bobY); this.ctx.lineTo(14, -3 + bobY);
+            this.ctx.stroke();
+        } else {
+            // Normal eyes
+            this.ctx.beginPath();
+            this.ctx.arc(8, -1 + bobY, 2, 0, Math.PI*2);
+            this.ctx.arc(16, -1 + bobY, 2, 0, Math.PI*2);
+            this.ctx.fill();
+        }
+
+        // Draw Arms
+        this.ctx.fillStyle = p.color; // Arms same color as body
+        if (isIt) this.ctx.fillStyle = (this.tagCooldown > 0 && Math.floor(time/200)%2 !== 0) ? '#fca5a5' : '#ef4444';
+        
+        this.ctx.beginPath();
+        if (!p.grounded && p.vy < 0) {
+            // Jumping: hands up
+            this.ctx.roundRect(0, -20 + bobY, 8, 14, 4); // back arm
+            this.ctx.roundRect(-16, -15 + bobY, 8, 14, 4); // front arm
+        } else if (p.grounded && Math.abs(p.vx) > 0) {
+            // Running: swing arms
+            const armSwing = Math.sin(p.walkCycle) * 8;
+            this.ctx.roundRect(-6 - armSwing, 0 + bobY, 8, 12, 4); // back arm
+            this.ctx.roundRect(-6 + armSwing, 2 + bobY, 8, 12, 4); // front arm
+        } else {
+            // Idle arms
+            this.ctx.roundRect(-10, 0 + bobY, 8, 12, 4); // back arm
+            this.ctx.roundRect(4, 2 + bobY, 8, 12, 4); // front arm
+        }
+        this.ctx.fill();
+
+        this.ctx.globalAlpha = 1.0;
+        this.ctx.restore();
     }
 }
 
