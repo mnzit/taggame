@@ -303,6 +303,47 @@ class GameEngine {
                 p.grounded = true;
             }
         });
+
+        // Check closest distance to IT for anxiety and scared animation
+        let minItDist = Infinity;
+        if (this.itPlayerId && this.players[this.itPlayerId]) {
+            const itP = this.players[this.itPlayerId];
+            Object.values(this.players).forEach(p => {
+                if (p.id !== this.itPlayerId) {
+                    let dx = (p.x + p.width/2) - (itP.x + itP.width/2);
+                    let dy = (p.y + p.height/2) - (itP.y + itP.height/2);
+                    let dist = Math.sqrt(dx*dx + dy*dy);
+                    if (dist < minItDist) minItDist = dist;
+                    p.isScared = dist < 200 * this.scale; // Scared if IT is close
+                } else {
+                    p.isScared = false;
+                }
+            });
+        }
+        
+        // Update global anxiety level based on min distance to IT
+        const anxietyThreshold = 350 * this.scale;
+        if (minItDist < anxietyThreshold && this.tagCooldown <= 0) {
+            this.anxietyLevel = 1 - (minItDist / anxietyThreshold);
+            if (window.soundEngine) window.soundEngine.playHeartbeat(this.anxietyLevel);
+        } else {
+            this.anxietyLevel = 0;
+        }
+
+        // Update particles
+        for (let i = this.particles.length - 1; i >= 0; i--) {
+            let p = this.particles[i];
+            p.x += p.vx * dt;
+            p.y += p.vy * dt;
+            p.life -= dt;
+            if (p.life <= 0) this.particles.splice(i, 1);
+        }
+        
+        // Update screen shake
+        if (this.shakeDuration > 0) {
+            this.shakeDuration -= dt;
+            if (this.shakeDuration < 0) this.shakeDuration = 0;
+        }
     }
 
     checkTagging() {
@@ -320,7 +361,7 @@ class GameEngine {
                     if (p1.id === this.itPlayerId || p2.id === this.itPlayerId) {
                         // Tag!
                         if (window.soundEngine) window.soundEngine.playTag();
-                        this.shakeDuration = 0.3; // Screen shake for 300ms
+                        this.shakeDuration = 0.15; // Screen shake for a split second (150ms)
                         
                         const tagged = p1.id === this.itPlayerId ? p2 : p1;
                         
@@ -363,7 +404,7 @@ class GameEngine {
         // Apply screen shake
         this.ctx.save();
         if (this.shakeDuration > 0) {
-            const magnitude = (this.shakeDuration / 0.3) * 20 * this.scale;
+            const magnitude = (this.shakeDuration / 0.15) * 15 * this.scale;
             this.ctx.translate((Math.random()-0.5)*magnitude, (Math.random()-0.5)*magnitude);
         }
         
