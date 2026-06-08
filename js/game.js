@@ -295,28 +295,26 @@ class GameEngine {
             this.checkTagging();
             
             // Timer Logic
-            if (Object.keys(this.players).length > 1) {
-                this.roundTimer -= dt;
-                const timerEl = document.getElementById('game-timer');
-                if (timerEl) {
-                    timerEl.innerText = Math.max(0, this.roundTimer).toFixed(1);
-                    if (this.roundTimer <= 5) {
-                        timerEl.classList.remove('text-white');
-                        timerEl.classList.add('text-red-500');
-                    } else {
-                        timerEl.classList.remove('text-red-500');
-                        timerEl.classList.add('text-white');
-                    }
+            this.roundTimer -= dt;
+            const timerEl = document.getElementById('game-timer');
+            if (timerEl) {
+                timerEl.innerText = Math.max(0, this.roundTimer).toFixed(1);
+                if (this.roundTimer <= 5) {
+                    timerEl.classList.remove('text-white');
+                    timerEl.classList.add('text-red-500');
+                } else {
+                    timerEl.classList.remove('text-red-500');
+                    timerEl.classList.add('text-white');
                 }
-                
-                if (this.roundTimer <= 0) {
-                    this.gameState = 'gameover';
-                    this.isRunning = false;
-                    document.getElementById('game-over-screen').classList.remove('hidden');
-                    const itPlayer = this.players[this.itPlayerId];
-                    const name = itPlayer ? itPlayer.name : 'IT';
-                    document.getElementById('game-over-text').innerText = `${name} ran out of time!`;
-                }
+            }
+            
+            if (this.roundTimer <= 0) {
+                this.gameState = 'gameover';
+                this.isRunning = false;
+                document.getElementById('game-over-screen').classList.remove('hidden');
+                const itPlayer = this.players[this.itPlayerId];
+                const name = itPlayer ? itPlayer.name : 'IT';
+                document.getElementById('game-over-text').innerText = `${name} ran out of time!`;
             }
         }
         
