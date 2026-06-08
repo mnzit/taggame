@@ -67,12 +67,14 @@ const GAME_MAPS = {
     }
 };
 
+
 class GameEngine {
     constructor() {
         this.canvas = document.getElementById('game-canvas');
         this.ctx = this.canvas.getContext('2d');
         this.players = {};
         this.platforms = [];
+        this.decorations = [];
         this.currentMapId = '5_floors';
         this.lastTime = 0;
         this.isRunning = false;
@@ -153,11 +155,14 @@ class GameEngine {
         }
     }
 
-    handlePlayerJump(id, state) {
-        if (this.players[id]) {
-            if (state && this.players[id].grounded) {
-                this.players[id].vy = this.jumpForce;
-                this.players[id].grounded = false;
+    handlePlayerJump(id, jump) {
+        const p = this.players[id];
+        if (p) {
+            p.isJumping = jump;
+            if (jump && p.grounded) {
+                p.vy = this.jumpForce;
+                p.grounded = false;
+                if (window.soundEngine) window.soundEngine.playJump();
             }
         }
     }
@@ -301,6 +306,9 @@ class GameEngine {
                     
                     // Freeze the new IT player for 1.5 seconds so the old IT can run
                     p.stunTimer = 1500;
+                    
+                    // Play tag sound
+                    if (window.soundEngine) window.soundEngine.playTag();
                     
                     // Add a tiny bounce effect to separate them
                     itPlayer.vy = -300;
@@ -543,7 +551,52 @@ class GameEngine {
     }
 }
 
+// Procedural Sound Engine
+class SoundEngine {
+    constructor() {
+        // Initialize audio context lazily on first user interaction if needed
+        this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    
+    playJump() {
+        if (this.ctx.state === 'suspended') this.ctx.resume();
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(150, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(400, this.ctx.currentTime + 0.1);
+        
+        gain.gain.setValueAtTime(0.05, this.ctx.currentTime); // keep volume low
+        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.1);
+        
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.1);
+    }
+
+    playTag() {
+        if (this.ctx.state === 'suspended') this.ctx.resume();
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(600, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(100, this.ctx.currentTime + 0.3);
+        
+        gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.3);
+        
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.3);
+    }
+}
+
 // Global initialization
+window.soundEngine = new SoundEngine();
 window.gameEngine = new GameEngine();
 
 window.joinLocal = function() {
