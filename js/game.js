@@ -80,10 +80,13 @@ class GameEngine {
         this.isRunning = false;
         
 
+        // Scaling for device
+        this.scale = isTouchDevice ? 0.7 : 1.3;
+        
         // Physics constants
-        this.gravity = 1400; // pixels per second squared (snappier fall)
-        this.moveSpeed = 450; // slightly faster horizontal movement
-        this.jumpForce = -1050; // increased to match new gravity
+        this.gravity = 1400; // pixels per second squared
+        this.moveSpeed = isTouchDevice ? 300 : 500; 
+        this.jumpForce = isTouchDevice ? -650 : -1150; 
         this.maxFallSpeed = 1500;
         
         // Tag Logic
@@ -118,8 +121,8 @@ class GameEngine {
             name: name,
             x: Math.random() * (this.canvas.width - 100) + 50,
             y: 50,
-            width: 40,
-            height: 40,
+            width: 40 * this.scale,
+            height: 40 * this.scale,
             vx: 0,
             vy: 0,
             color: colors[colorIndex],
@@ -446,10 +449,9 @@ class GameEngine {
         this.ctx.save();
         this.ctx.translate(cx + shakeX, cy + shakeY);
         
-        // Flip context if facing left
-        if (!p.facingRight) {
-            this.ctx.scale(-1, 1);
-        }
+        // Apply directional flip AND dynamic size scaling
+        const flipX = p.facingRight ? 1 : -1;
+        this.ctx.scale(flipX * this.scale, this.scale);
 
         // Bobbing/breathing animation
         let bobY = 0;
