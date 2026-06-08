@@ -88,7 +88,7 @@ class GameEngine {
         // Physics constants
         this.gravity = 2400; // Snappier fall
         this.moveSpeed = isTouchDevice ? 300 : 500; 
-        this.jumpForce = isTouchDevice ? -850 : -1500; 
+        this.jumpForce = isTouchDevice ? -600 : -1500; 
         this.maxFallSpeed = 2000;
         
         // Tag Logic
