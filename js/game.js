@@ -715,9 +715,30 @@ window.initLocalJoystick = function() {
     }, {passive: false});
 };
 
-window.startGame = function() {
+window.startGame = async function() {
     document.getElementById('lobby-modal').classList.add('hidden');
     document.getElementById('game-screen').classList.remove('hidden');
+    
+    // Attempt to force horizontal/landscape mode for mobile hosts
+    if (isTouchDevice) {
+        try {
+            const el = document.documentElement;
+            if (el.requestFullscreen) {
+                await el.requestFullscreen();
+            } else if (el.webkitRequestFullscreen) { /* Safari */
+                await el.webkitRequestFullscreen();
+            } else if (el.msRequestFullscreen) { /* IE11 */
+                await el.msRequestFullscreen();
+            }
+            
+            if (screen.orientation && screen.orientation.lock) {
+                await screen.orientation.lock('landscape');
+            }
+        } catch (err) {
+            console.log('Orientation lock failed or not supported:', err);
+        }
+    }
+    
     window.gameEngine.start();
 };
 
