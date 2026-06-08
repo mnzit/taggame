@@ -557,7 +557,19 @@ class GameEngine {
                     let dy = (p.y + p.height/2) - (itP.y + itP.height/2);
                     let dist = Math.sqrt(dx*dx + dy*dy);
                     if (dist < minItDist) minItDist = dist;
-                    p.isScared = dist < 200 * this.scale; // Scared if IT is close
+                    
+                    const isNowScared = dist < 200 * this.scale;
+                    
+                    if (p.screamCooldown > 0) p.screamCooldown -= dt;
+                    
+                    if (isNowScared) {
+                        if (!p.isScared || (p.screamCooldown <= 0 && Math.random() < 0.05)) {
+                            if (window.soundEngine) window.soundEngine.playScream(dist / (200 * this.scale));
+                            p.screamCooldown = 1.0 + Math.random() * 2.0;
+                        }
+                    }
+                    
+                    p.isScared = isNowScared;
                 } else {
                     p.isScared = false;
                 }
@@ -1341,6 +1353,43 @@ class SoundEngine {
             osc.start(startTime);
             osc.stop(startTime + duration);
         });
+    }
+
+    playScream(normalizedDistance) {
+        if (this.ctx.state === 'suspended') this.ctx.resume();
+        
+        const baseFreq = 600 + Math.random() * 400; // 600 to 1000 Hz
+        const duration = 0.3 + Math.random() * 0.4;
+        
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        
+        osc.type = Math.random() > 0.5 ? 'sawtooth' : 'square';
+        
+        osc.frequency.setValueAtTime(baseFreq, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(baseFreq * 1.5, this.ctx.currentTime + duration/2);
+        osc.frequency.exponentialRampToValueAtTime(baseFreq * 0.8, this.ctx.currentTime + duration);
+        
+        const lfo = this.ctx.createOscillator();
+        const lfoGain = this.ctx.createGain();
+        lfo.type = 'sine';
+        lfo.frequency.value = 15 + Math.random() * 10;
+        lfoGain.gain.value = 50 + Math.random() * 50;
+        lfo.connect(lfoGain);
+        lfoGain.connect(osc.frequency);
+        lfo.start();
+        lfo.stop(this.ctx.currentTime + duration);
+        
+        const maxVol = Math.max(0.05, 1.0 - normalizedDistance) * 0.5;
+        
+        gain.gain.setValueAtTime(0, this.ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(maxVol, this.ctx.currentTime + 0.05);
+        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+        
+        osc.start();
+        osc.stop(this.ctx.currentTime + duration);
     }
 }
 
