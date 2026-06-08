@@ -1,0 +1,270 @@
+// Game Engine & Logic
+class GameEngine {
+    constructor() {
+        this.canvas = document.getElementById('game-canvas');
+        this.ctx = this.canvas.getContext('2d');
+        this.players = {};
+        this.platforms = [];
+        this.lastTime = 0;
+        this.isRunning = false;
+        
+        // Physics constants
+        this.gravity = 800; // pixels per second squared
+        this.moveSpeed = 400; // pixels per second
+        this.jumpForce = -500; // pixels per second
+        this.maxFallSpeed = 1000;
+        
+        // Tag Logic
+        this.itPlayerId = null;
+        this.tagCooldown = 0; // ms
+        
+        this.resize();
+        window.addEventListener('resize', () => this.resize());
+    }
+
+    resize() {
+        this.canvas.width = window.innerWidth;
+        this.canvas.height = window.innerHeight;
+        // Re-generate platforms if not running to fit screen
+        if (!this.isRunning) {
+            this.generatePlatforms();
+        }
+    }
+
+    addPlayer(id, name) {
+        const colors = ['#38bdf8', '#a3e635', '#f472b6', '#fbbf24'];
+        this.players[id] = {
+            id: id,
+            name: name,
+            x: Math.random() * (this.canvas.width - 100) + 50,
+            y: 50,
+            width: 40,
+            height: 40,
+            vx: 0,
+            vy: 0,
+            color: colors[(id - 1) % colors.length],
+            inputX: 0,
+            isJumping: false,
+            grounded: false
+        };
+        
+        // If first player, make them IT
+        if (!this.itPlayerId) {
+            this.itPlayerId = id;
+        }
+    }
+
+    removePlayer(id) {
+        delete this.players[id];
+        if (this.itPlayerId === id) {
+            const remaining = Object.keys(this.players);
+            this.itPlayerId = remaining.length > 0 ? remaining[0] : null;
+        }
+    }
+
+    updatePlayerName(id, name) {
+        if (this.players[id]) this.players[id].name = name;
+    }
+
+    handlePlayerMove(id, x, y) {
+        if (this.players[id]) {
+            this.players[id].inputX = x;
+        }
+    }
+
+    handlePlayerJump(id, state) {
+        if (this.players[id]) {
+            if (state && this.players[id].grounded) {
+                this.players[id].vy = this.jumpForce;
+                this.players[id].grounded = false;
+            }
+        }
+    }
+
+    generatePlatforms() {
+        this.platforms = [];
+        const w = this.canvas.width;
+        const h = this.canvas.height;
+        
+        // Floor
+        this.platforms.push({ x: 0, y: h - 40, width: w, height: 40 });
+        
+        // Random floating platforms
+        const numPlatforms = Math.floor((w * h) / 100000); // density
+        for (let i = 0; i < numPlatforms; i++) {
+            const pw = 150 + Math.random() * 200;
+            const px = Math.random() * (w - pw);
+            const py = 150 + Math.random() * (h - 250);
+            this.platforms.push({ x: px, y: py, width: pw, height: 20 });
+        }
+    }
+
+    start() {
+        if (this.isRunning) return;
+        this.isRunning = true;
+        this.generatePlatforms();
+        
+        // Reset player positions
+        Object.values(this.players).forEach(p => {
+            p.x = Math.random() * (this.canvas.width - 100) + 50;
+            p.y = 50;
+            p.vx = 0;
+            p.vy = 0;
+        });
+        
+        this.lastTime = performance.now();
+        requestAnimationFrame((t) => this.loop(t));
+        
+        // Notify phones
+        broadcastToControllers({ a: 'start' });
+    }
+
+    checkCollision(rect1, rect2) {
+        return rect1.x < rect2.x + rect2.width &&
+               rect1.x + rect1.width > rect2.x &&
+               rect1.y < rect2.y + rect2.height &&
+               rect1.y + rect1.height > rect2.y;
+    }
+
+    loop(timestamp) {
+        if (!this.isRunning) return;
+        const dt = (timestamp - this.lastTime) / 1000;
+        this.lastTime = timestamp;
+        
+        if (this.tagCooldown > 0) {
+            this.tagCooldown -= dt * 1000;
+        }
+
+        this.updatePhysics(dt);
+        this.checkTagging();
+        this.draw();
+        
+        requestAnimationFrame((t) => this.loop(t));
+    }
+
+    updatePhysics(dt) {
+        const pList = Object.values(this.players);
+        
+        pList.forEach(p => {
+            // Apply horizontal input
+            p.vx = p.inputX * this.moveSpeed;
+            
+            // Apply gravity
+            p.vy += this.gravity * dt;
+            if (p.vy > this.maxFallSpeed) p.vy = this.maxFallSpeed;
+            
+            // Move X
+            p.x += p.vx * dt;
+            
+            // Screen wrap X
+            if (p.x > this.canvas.width) p.x = -p.width;
+            if (p.x + p.width < 0) p.x = this.canvas.width;
+            
+            // Move Y
+            p.y += p.vy * dt;
+            p.grounded = false;
+            
+            // Platform collisions
+            this.platforms.forEach(plat => {
+                // Simple AABB, only collide if falling down
+                if (p.vy >= 0 && 
+                    p.y + p.height - (p.vy * dt) <= plat.y + 5 && // was above platform last frame
+                    p.x + p.width > plat.x && 
+                    p.x < plat.x + plat.width && 
+                    p.y + p.height >= plat.y) {
+                    
+                    p.y = plat.y - p.height;
+                    p.vy = 0;
+                    p.grounded = true;
+                }
+            });
+            
+            // Ceiling / Floor bounds fallback
+            if (p.y + p.height > this.canvas.height) {
+                p.y = this.canvas.height - p.height;
+                p.vy = 0;
+                p.grounded = true;
+            }
+        });
+    }
+
+    checkTagging() {
+        if (this.tagCooldown > 0) return;
+        
+        const itPlayer = this.players[this.itPlayerId];
+        if (!itPlayer) return;
+        
+        Object.values(this.players).forEach(p => {
+            if (p.id !== this.itPlayerId) {
+                if (this.checkCollision(itPlayer, p)) {
+                    // Tag!
+                    this.itPlayerId = p.id;
+                    this.tagCooldown = 2000; // 2 seconds cooldown
+                    
+                    // Add a tiny bounce effect to both
+                    itPlayer.vy = -200;
+                    p.vy = -300;
+                }
+            }
+        });
+    }
+
+    draw() {
+        // Clear background
+        this.ctx.fillStyle = '#0f172a';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // Draw platforms
+        this.ctx.fillStyle = '#334155';
+        this.platforms.forEach(plat => {
+            this.ctx.fillRect(plat.x, plat.y, plat.width, plat.height);
+            // Highlight top edge
+            this.ctx.fillStyle = '#475569';
+            this.ctx.fillRect(plat.x, plat.y, plat.width, 4);
+            this.ctx.fillStyle = '#334155';
+        });
+        
+        // Draw players
+        Object.values(this.players).forEach(p => {
+            const isIt = p.id === this.itPlayerId;
+            
+            if (isIt) {
+                // Draw glowing aura
+                this.ctx.shadowBlur = 20;
+                this.ctx.shadowColor = '#ef4444';
+                this.ctx.fillStyle = '#ef4444'; // Red for IT
+            } else {
+                this.ctx.shadowBlur = 0;
+                this.ctx.fillStyle = p.color;
+            }
+            
+            // Draw square
+            this.ctx.fillRect(p.x, p.y, p.width, p.height);
+            
+            // Reset shadow
+            this.ctx.shadowBlur = 0;
+            
+            // Draw Name
+            this.ctx.fillStyle = '#ffffff';
+            this.ctx.font = '14px "Inter"';
+            this.ctx.textAlign = 'center';
+            this.ctx.fillText(p.name, p.x + p.width/2, p.y - 10);
+            
+            // Draw 'IT' tag
+            if (isIt) {
+                this.ctx.fillStyle = '#ef4444';
+                this.ctx.font = 'bold 16px "Fredoka"';
+                this.ctx.fillText('IT!', p.x + p.width/2, p.y - 28);
+            }
+        });
+    }
+}
+
+// Global initialization
+window.gameEngine = new GameEngine();
+
+window.startGame = function() {
+    document.getElementById('lobby-modal').classList.add('hidden');
+    document.getElementById('game-screen').classList.remove('hidden');
+    window.gameEngine.start();
+};
