@@ -79,6 +79,17 @@ class GameEngine {
         this.lastTime = 0;
         this.isRunning = false;
         
+        // Make canvas responsive
+        this.resizeCanvas = this.resizeCanvas.bind(this);
+        window.addEventListener('resize', this.resizeCanvas);
+        this.resizeCanvas(); // Initial size setup
+    }
+
+    resizeCanvas() {
+        this.canvas.width = window.innerWidth;
+        this.canvas.height = window.innerHeight;
+        this.loadMap();
+    }    
         // Physics constants
         this.gravity = 1400; // pixels per second squared (snappier fall)
         this.moveSpeed = 450; // slightly faster horizontal movement
@@ -170,10 +181,15 @@ class GameEngine {
     }
 
     loadMap() {
-        this.currentMap = '5_floors';
-        const mapData = GAME_MAPS[this.currentMap].build(this.canvas.width, this.canvas.height);
+        const mapData = GAME_MAPS[this.currentMapId].build(this.canvas.width, this.canvas.height);
         this.platforms = mapData.platforms || mapData;
         this.decorations = mapData.decorations || [];
+        
+        // Prevent players from falling off if screen shrinks
+        Object.values(this.players).forEach(p => {
+            if (p.x + p.width > this.canvas.width) p.x = this.canvas.width - p.width;
+            if (p.y + p.height > this.canvas.height) p.y = 50;
+        });
     }
 
     start() {
