@@ -355,9 +355,18 @@ class GameEngine {
                         height: 30,
                         type: 'time_warp',
                         floatY: 0,
-                        time: 0
+                        time: 0,
+                        life: 5.0 // Despawns after 5 seconds
                     });
                 }
+            }
+        }
+        
+        // Power-Up Lifecycle
+        for (let i = this.powerups.length - 1; i >= 0; i--) {
+            this.powerups[i].life -= dt;
+            if (this.powerups[i].life <= 0) {
+                this.powerups.splice(i, 1);
             }
         }
         
@@ -772,6 +781,11 @@ class GameEngine {
             this.ctx.save();
             this.ctx.translate(pu.x + pu.width/2, pu.y + pu.height/2 + pu.floatY);
             
+            // Fade out if about to expire (blink in last second)
+            if (pu.life < 1.5) {
+                this.ctx.globalAlpha = (Math.floor(pu.time * 10) % 2 === 0) ? 0.3 : 1.0;
+            }
+            
             if (pu.type === 'time_warp') {
                 this.ctx.shadowColor = '#3b82f6';
                 this.ctx.shadowBlur = 15;
@@ -795,6 +809,7 @@ class GameEngine {
                 this.ctx.stroke();
             }
             this.ctx.restore();
+            this.ctx.globalAlpha = 1.0;
         });
 
         // Slow Mo screen effect
