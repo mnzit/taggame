@@ -79,17 +79,7 @@ class GameEngine {
         this.lastTime = 0;
         this.isRunning = false;
         
-        // Make canvas responsive
-        this.resizeCanvas = this.resizeCanvas.bind(this);
-        window.addEventListener('resize', this.resizeCanvas);
-        this.resizeCanvas(); // Initial size setup
-    }
 
-    resizeCanvas() {
-        this.canvas.width = window.innerWidth;
-        this.canvas.height = window.innerHeight;
-        this.loadMap();
-    }    
         // Physics constants
         this.gravity = 1400; // pixels per second squared (snappier fall)
         this.moveSpeed = 450; // slightly faster horizontal movement
