@@ -41,9 +41,19 @@ function updateHostLobby() {
         `;
         list.appendChild(row);
     }
+    const maxCountEl = document.getElementById('max-players-count');
+    if (maxCountEl) maxCountEl.innerText = maxPlayers;
     
     document.getElementById('player-count').innerText = connectedCount;
     
+    const btnAdd = document.getElementById('btn-add-remote');
+    if (btnAdd) {
+        if (maxPlayers >= 10) {
+            btnAdd.classList.add('hidden');
+        } else {
+            btnAdd.classList.remove('hidden');
+        }
+    }
     const startBtn = document.getElementById('btn-start');
     if (connectedCount > 0) {
         startBtn.classList.remove('hidden');
@@ -51,6 +61,13 @@ function updateHostLobby() {
         startBtn.classList.add('hidden');
     }
 }
+
+window.addRemoteSlot = function() {
+    if (maxPlayers < 10) {
+        maxPlayers++;
+        updateHostLobby();
+    }
+};
 
 function markSlotConnected(slot, ok) { 
     if (!peers[slot]) return;
