@@ -328,7 +328,7 @@ class GameEngine {
                     plat.crumbleTimer -= dt;
                     if (plat.crumbleTimer <= 0) {
                         plat.state = 'crumbled';
-                        plat.crumbleTimer = 4.0; // regenerate after 4s
+                        plat.crumbleTimer = 1.5; // regenerate sooner (1.5s)
                     }
                 } else if (plat.state === 'crumbled') {
                     plat.crumbleTimer -= dt;
