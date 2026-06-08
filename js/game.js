@@ -106,6 +106,7 @@ class GameEngine {
         this.weatherTimer = 10.0;
         this.weatherDuration = 0;
         this.weatherParticles = [];
+        this.windSoundTimer = 0;
         
         // Game Settings (Read from Lobby)
         this.settings = {
@@ -292,6 +293,15 @@ class GameEngine {
         // Weather cycle
         if (this.weatherDuration > 0) {
             this.weatherDuration -= dt;
+            
+            if (this.currentWeather === 'wind_left' || this.currentWeather === 'wind_right') {
+                this.windSoundTimer -= dt;
+                if (this.windSoundTimer <= 0) {
+                    if (window.soundEngine) window.soundEngine.playWind();
+                    this.windSoundTimer = 1.0 + Math.random() * 2.0;
+                }
+            }
+            
             if (this.weatherDuration <= 0) {
                 this.currentWeather = 'none';
                 this.weatherTimer = 10 + Math.random() * 15;
@@ -1061,6 +1071,41 @@ class SoundEngine {
         
         osc.start(now);
         osc.stop(now + 0.15);
+    }
+
+    playWind() {
+        if (this.ctx.state === 'suspended') this.ctx.resume();
+        const bufferSize = this.ctx.sampleRate * 2; // 2 seconds of noise
+        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        
+        let lastOut = 0;
+        for (let i = 0; i < bufferSize; i++) {
+            let white = Math.random() * 2 - 1;
+            data[i] = (lastOut + (0.02 * white)) / 1.02; // Brown noise approximation
+            lastOut = data[i];
+            data[i] *= 3.5;
+        }
+
+        const noiseSource = this.ctx.createBufferSource();
+        noiseSource.buffer = buffer;
+
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(100, this.ctx.currentTime);
+        filter.frequency.linearRampToValueAtTime(800 + Math.random() * 400, this.ctx.currentTime + 1);
+        filter.frequency.linearRampToValueAtTime(100, this.ctx.currentTime + 2);
+
+        const gain = this.ctx.createGain();
+        gain.gain.setValueAtTime(0, this.ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.3, this.ctx.currentTime + 0.5);
+        gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 2);
+
+        noiseSource.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        noiseSource.start();
     }
 }
 
