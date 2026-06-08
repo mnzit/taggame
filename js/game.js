@@ -97,6 +97,7 @@ class GameEngine {
         
         // Effects
         this.particles = [];
+        this.footprints = [];
         this.shakeDuration = 0;
         this.anxietyLevel = 0;
         
@@ -132,6 +133,7 @@ class GameEngine {
             height: 40 * this.scale,
             vx: 0,
             vy: 0,
+            sprintTimer: 0,
             color: colors[colorIndex],
             armColor: armColors[colorIndex],
             inputX: 0,
@@ -246,6 +248,25 @@ class GameEngine {
                 p.vx = p.inputX * this.moveSpeed;
                 if (p.inputX > 0) p.facingRight = true;
                 if (p.inputX < 0) p.facingRight = false;
+                
+                // Footprints system
+                if (Math.abs(p.vx) > this.moveSpeed * 0.6) {
+                    p.sprintTimer += dt;
+                    if (p.sprintTimer > 0.5 && p.grounded && p.id !== this.itPlayerId) {
+                        if (!p.lastFootprintTime || Date.now() - p.lastFootprintTime > 150) {
+                            p.lastFootprintTime = Date.now();
+                            this.footprints.push({
+                                x: p.x + p.width / 2,
+                                y: p.y + p.height,
+                                facingRight: p.facingRight,
+                                life: 3.0
+                            });
+                        }
+                    }
+                } else {
+                    p.sprintTimer -= dt * 2;
+                    if (p.sprintTimer < 0) p.sprintTimer = 0;
+                }
             }
             
             // Animation walk cycle
@@ -339,6 +360,13 @@ class GameEngine {
             if (p.life <= 0) this.particles.splice(i, 1);
         }
         
+        // Update footprints
+        for (let i = this.footprints.length - 1; i >= 0; i--) {
+            let fp = this.footprints[i];
+            fp.life -= dt;
+            if (fp.life <= 0) this.footprints.splice(i, 1);
+        }
+        
         // Update screen shake
         if (this.shakeDuration > 0) {
             this.shakeDuration -= dt;
@@ -415,16 +443,28 @@ class GameEngine {
         this.ctx.fillStyle = grad;
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         
-        // Draw distant mountains (parallax background effect)
-        this.ctx.fillStyle = '#0f172a';
+        // Background mountains
+        this.ctx.fillStyle = '#1e293b';
         this.ctx.beginPath();
         this.ctx.moveTo(0, this.canvas.height - 40);
         this.ctx.lineTo(this.canvas.width * 0.15, this.canvas.height - 300);
         this.ctx.lineTo(this.canvas.width * 0.4, this.canvas.height - 150);
         this.ctx.lineTo(this.canvas.width * 0.7, this.canvas.height - 350);
-        this.ctx.lineTo(this.canvas.width, this.canvas.height - 100);
-        this.ctx.lineTo(this.canvas.width, this.canvas.height);
+        this.ctx.lineTo(this.canvas.width, this.canvas.height - 40);
         this.ctx.fill();
+
+        // Draw Footprints
+        this.footprints.forEach(fp => {
+            this.ctx.globalAlpha = fp.life / 3.0;
+            this.ctx.fillStyle = '#4ade80'; // glowing green
+            this.ctx.shadowColor = '#4ade80';
+            this.ctx.shadowBlur = 10;
+            this.ctx.beginPath();
+            this.ctx.ellipse(fp.x, fp.y, 6 * this.scale, 3 * this.scale, fp.facingRight ? 0.2 : -0.2, 0, Math.PI * 2);
+            this.ctx.fill();
+        });
+        this.ctx.globalAlpha = 1.0;
+        this.ctx.shadowBlur = 0;
 
         // Draw decorations
         if (this.decorations) {
@@ -804,7 +844,10 @@ window.initLocalJoystick = function() {
     });
     
     localJoy.on('move', (evt, data) => {
-        let x = Math.cos(data.angle.radian);
+        let distance = Math.min(100, data.distance); // nipplejs size is 100
+        let magnitude = distance / 50; // max is ~2.0, cap at 1
+        if (magnitude > 1) magnitude = 1;
+        let x = Math.cos(data.angle.radian) * magnitude;
         window.gameEngine.handlePlayerMove('local1', x, 0); // Ignore Y for horizontal platformer
     });
     localJoy.on('end', () => {
@@ -851,38 +894,38 @@ window.startGame = async function() {
 };
 
 // Local Keyboard Controls
+window.keys = {};
+
 window.addEventListener('keydown', (e) => {
-    if (!window.gameEngine || !window.gameEngine.isRunning) return;
-    
-    const p1 = window.gameEngine.players['local1'];
-    if (p1) {
-        if (e.code === 'Space' || e.code === 'KeyW') window.gameEngine.handlePlayerJump('local1', true);
-        if (e.code === 'KeyA') window.gameEngine.handlePlayerMove('local1', -1, 0);
-        if (e.code === 'KeyD') window.gameEngine.handlePlayerMove('local1', 1, 0);
-    }
-    
-    const p2 = window.gameEngine.players['local2'];
-    if (p2) {
-        if (e.code === 'ArrowUp') window.gameEngine.handlePlayerJump('local2', true);
-        if (e.code === 'ArrowLeft') window.gameEngine.handlePlayerMove('local2', -1, 0);
-        if (e.code === 'ArrowRight') window.gameEngine.handlePlayerMove('local2', 1, 0);
-    }
+    window.keys[e.code] = true;
+    updateLocalInputs();
 });
 
 window.addEventListener('keyup', (e) => {
+    window.keys[e.code] = false;
+    updateLocalInputs();
+});
+
+function updateLocalInputs() {
     if (!window.gameEngine || !window.gameEngine.isRunning) return;
     
     const p1 = window.gameEngine.players['local1'];
-    if (p1) {
-        if (e.code === 'Space' || e.code === 'KeyW') window.gameEngine.handlePlayerJump('local1', false);
-        if (e.code === 'KeyA' && p1.inputX === -1) window.gameEngine.handlePlayerMove('local1', 0, 0);
-        if (e.code === 'KeyD' && p1.inputX === 1) window.gameEngine.handlePlayerMove('local1', 0, 0);
+    if (p1 && !isTouchDevice) {
+        let x = 0;
+        if (window.keys['KeyA']) x -= 1;
+        if (window.keys['KeyD']) x += 1;
+        if (window.keys['ShiftLeft'] || window.keys['ShiftRight']) x *= 0.5; // Sneak
+        window.gameEngine.handlePlayerMove('local1', x, 0);
+        window.gameEngine.handlePlayerJump('local1', window.keys['Space'] || window.keys['KeyW']);
     }
     
     const p2 = window.gameEngine.players['local2'];
     if (p2) {
-        if (e.code === 'ArrowUp') window.gameEngine.handlePlayerJump('local2', false);
-        if (e.code === 'ArrowLeft' && p2.inputX === -1) window.gameEngine.handlePlayerMove('local2', 0, 0);
-        if (e.code === 'ArrowRight' && p2.inputX === 1) window.gameEngine.handlePlayerMove('local2', 0, 0);
+        let x = 0;
+        if (window.keys['ArrowLeft']) x -= 1;
+        if (window.keys['ArrowRight']) x += 1;
+        if (window.keys['ShiftRight'] || window.keys['ShiftLeft']) x *= 0.5; // Sneak
+        window.gameEngine.handlePlayerMove('local2', x, 0);
+        window.gameEngine.handlePlayerJump('local2', window.keys['ArrowUp']);
     }
-});
+}
