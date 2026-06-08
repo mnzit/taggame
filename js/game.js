@@ -101,6 +101,12 @@ class GameEngine {
         this.shakeDuration = 0;
         this.anxietyLevel = 0;
         
+        // Weather
+        this.currentWeather = 'none'; // 'none', 'wind_left', 'wind_right', 'fog'
+        this.weatherTimer = 10.0;
+        this.weatherDuration = 0;
+        this.weatherParticles = [];
+        
         this.resize();
         window.addEventListener('resize', () => this.resize());
     }
@@ -185,6 +191,17 @@ class GameEngine {
         this.platforms = mapData.platforms || mapData;
         this.decorations = mapData.decorations || [];
         
+        // Add collapsible platform logic
+        this.platforms.forEach((plat, index) => {
+            if (index > 0 && Math.random() < 0.4) {
+                plat.isCollapsible = true;
+                plat.state = 'normal';
+                plat.crumbleTimer = 0;
+            } else {
+                plat.isCollapsible = false;
+            }
+        });
+        
         // Prevent players from falling off if screen shrinks
         Object.values(this.players).forEach(p => {
             if (p.x + p.width > this.canvas.width) p.x = this.canvas.width - p.width;
@@ -236,6 +253,40 @@ class GameEngine {
     }
 
     updatePhysics(dt) {
+        // Weather cycle
+        if (this.weatherDuration > 0) {
+            this.weatherDuration -= dt;
+            if (this.weatherDuration <= 0) {
+                this.currentWeather = 'none';
+                this.weatherTimer = 10 + Math.random() * 15;
+            }
+        } else {
+            this.weatherTimer -= dt;
+            if (this.weatherTimer <= 0) {
+                const events = ['wind_left', 'wind_right', 'fog'];
+                this.currentWeather = events[Math.floor(Math.random() * events.length)];
+                this.weatherDuration = 6 + Math.random() * 6; // 6 to 12 seconds
+            }
+        }
+
+        // Platform Crumbling Update
+        this.platforms.forEach(plat => {
+            if (plat.isCollapsible) {
+                if (plat.state === 'flashing') {
+                    plat.crumbleTimer -= dt;
+                    if (plat.crumbleTimer <= 0) {
+                        plat.state = 'crumbled';
+                        plat.crumbleTimer = 4.0; // regenerate after 4s
+                    }
+                } else if (plat.state === 'crumbled') {
+                    plat.crumbleTimer -= dt;
+                    if (plat.crumbleTimer <= 0) {
+                        plat.state = 'normal';
+                    }
+                }
+            }
+        });
+
         const pList = Object.values(this.players);
         
         pList.forEach(p => {
@@ -280,6 +331,12 @@ class GameEngine {
             p.vy += this.gravity * dt;
             if (p.vy > this.maxFallSpeed) p.vy = this.maxFallSpeed;
             
+            // Apply Weather (Wind)
+            if (!p.grounded && p.stunTimer <= 0) {
+                if (this.currentWeather === 'wind_left') p.vx -= 600 * dt;
+                if (this.currentWeather === 'wind_right') p.vx += 600 * dt;
+            }
+            
             // Move X
             p.x += p.vx * dt;
             
@@ -304,6 +361,8 @@ class GameEngine {
             
             // Platform collisions
             this.platforms.forEach(plat => {
+                if (plat.isCollapsible && plat.state === 'crumbled') return; // Ignore crumbled
+                
                 // Simple AABB, only collide if falling down
                 if (p.vy >= 0 && 
                     p.y + p.height - (p.vy * dt) <= plat.y + 5 && // was above platform last frame
@@ -314,6 +373,11 @@ class GameEngine {
                     p.y = plat.y - p.height;
                     p.vy = 0;
                     p.grounded = true;
+                    
+                    if (plat.isCollapsible && plat.state === 'normal') {
+                        plat.state = 'flashing';
+                        plat.crumbleTimer = 2.0;
+                    }
                 }
             });
             
@@ -511,15 +575,24 @@ class GameEngine {
             });
         }
 
-        // Draw platforms
-        this.platforms.forEach(p => {
-            // Main platform block
-            this.ctx.fillStyle = p.color || '#334155';
-            this.ctx.fillRect(p.x, p.y, p.width, p.height);
+        // Draw Platforms
+        this.platforms.forEach(plat => {
+            if (plat.isCollapsible && plat.state === 'crumbled') return;
+            
+            this.ctx.fillStyle = plat.color || '#334155';
+            
+            if (plat.isCollapsible && plat.state === 'flashing') {
+                const flashSpeed = Math.max(0.1, plat.crumbleTimer / 4);
+                if (Math.floor(plat.crumbleTimer / flashSpeed * 10) % 2 === 0) {
+                    this.ctx.fillStyle = '#ef4444'; // Flashing Red
+                }
+            }
+            
+            this.ctx.fillRect(plat.x, plat.y, plat.width, plat.height);
             
             // Grass top
             this.ctx.fillStyle = '#22c55e'; // vivid green
-            this.ctx.fillRect(p.x, p.y, p.width, 4);
+            this.ctx.fillRect(plat.x, plat.y, plat.width, 4);
         });
         
         // Draw players
@@ -550,6 +623,62 @@ class GameEngine {
 
         // Restore context from screen shake
         this.ctx.restore();
+
+        // Weather Effects rendering
+        if (this.currentWeather === 'wind_left' || this.currentWeather === 'wind_right') {
+            const dir = this.currentWeather === 'wind_left' ? -1 : 1;
+            if (Math.random() < 0.3) {
+                this.weatherParticles.push({
+                    x: dir === 1 ? -100 : this.canvas.width + 100,
+                    y: Math.random() * this.canvas.height,
+                    vx: dir * (1000 + Math.random() * 1000),
+                    width: 50 + Math.random() * 150
+                });
+            }
+            
+            this.ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+            for(let i=this.weatherParticles.length-1; i>=0; i--) {
+                let wp = this.weatherParticles[i];
+                wp.x += wp.vx * 0.016;
+                this.ctx.fillRect(wp.x, wp.y, wp.width, 2);
+                if ((dir === 1 && wp.x > this.canvas.width + 200) || (dir === -1 && wp.x < -200)) {
+                    this.weatherParticles.splice(i, 1);
+                }
+            }
+        }
+        
+        if (this.currentWeather === 'fog') {
+            if (!this.fogCanvas) {
+                this.fogCanvas = document.createElement('canvas');
+                this.fogCtx = this.fogCanvas.getContext('2d');
+            }
+            if (this.fogCanvas.width !== this.canvas.width || this.fogCanvas.height !== this.canvas.height) {
+                this.fogCanvas.width = this.canvas.width;
+                this.fogCanvas.height = this.canvas.height;
+            }
+            
+            this.fogCtx.fillStyle = 'rgba(15, 23, 42, 0.95)';
+            this.fogCtx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+            
+            this.fogCtx.globalCompositeOperation = 'destination-out';
+            Object.values(this.players).forEach(p => {
+                if (p.id !== this.itPlayerId) {
+                    const gradient = this.fogCtx.createRadialGradient(
+                        p.x + p.width/2, p.y + p.height/2, 10,
+                        p.x + p.width/2, p.y + p.height/2, 250 * this.scale
+                    );
+                    gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
+                    gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+                    this.fogCtx.fillStyle = gradient;
+                    this.fogCtx.beginPath();
+                    this.fogCtx.arc(p.x + p.width/2, p.y + p.height/2, 250 * this.scale, 0, Math.PI*2);
+                    this.fogCtx.fill();
+                }
+            });
+            this.fogCtx.globalCompositeOperation = 'source-over';
+            
+            this.ctx.drawImage(this.fogCanvas, 0, 0);
+        }
     }
 
     drawCharacter(p, isIt) {
