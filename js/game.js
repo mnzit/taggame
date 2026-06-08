@@ -105,9 +105,11 @@ class GameEngine {
         this.currentWeather = 'none'; // 'none', 'wind_left', 'wind_right', 'fog'
         this.weatherTimer = 10.0;
         this.weatherDuration = 0;
-        this.weatherDuration = 0;
+        this.weatherParticles = [];
         this.windSoundTimer = 0;
         
+        // Power-ups
+        this.powerups = [];
         this.gameState = 'lobby'; // lobby, playing, gameover
         this.roundTimer = 30.0;
         
