@@ -107,6 +107,9 @@ class GameEngine {
         this.weatherDuration = 0;
         this.weatherParticles = [];
         
+        // Day/Night Cycle
+        this.timeOfDay = 0.5 * Math.PI; // Starts at twilight (sunset)
+        
         this.resize();
         window.addEventListener('resize', () => this.resize());
     }
@@ -253,6 +256,9 @@ class GameEngine {
     }
 
     updatePhysics(dt) {
+        // Update Time of Day
+        this.timeOfDay += dt * 0.05; // 1 cycle roughly every 125 seconds
+
         // Weather cycle
         if (this.weatherDuration > 0) {
             this.weatherDuration -= dt;
@@ -510,12 +516,54 @@ class GameEngine {
             this.ctx.translate((Math.random()-0.5)*magnitude, (Math.random()-0.5)*magnitude);
         }
         
-        // Draw sky gradient
-        const grad = this.ctx.createLinearGradient(0, 0, 0, this.canvas.height);
-        grad.addColorStop(0, '#020617'); // Dark night sky
-        grad.addColorStop(1, '#1e1b4b'); // Deep purple-blue horizon
-        this.ctx.fillStyle = grad;
+        // Day/Night Cycle factors
+        const timeFactor = -Math.cos(this.timeOfDay); 
+        const darknessLevel = Math.max(0, timeFactor); // 0 to 1
+        const dayLevel = Math.max(0, -timeFactor); // 0 to 1
+        
+        // Background colors interpolated based on cycle
+        const skyGrad = this.ctx.createLinearGradient(0, 0, 0, this.canvas.height);
+        if (dayLevel > 0) {
+            skyGrad.addColorStop(0, `rgba(56, 189, 248, ${dayLevel})`); // sky-400
+            skyGrad.addColorStop(1, `rgba(125, 211, 252, ${dayLevel})`); // sky-300
+        } else {
+            skyGrad.addColorStop(0, `rgba(2, 6, 23, ${darknessLevel})`); // slate-950
+            skyGrad.addColorStop(1, `rgba(30, 41, 59, ${darknessLevel})`); // slate-800
+        }
+        this.ctx.fillStyle = skyGrad;
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // Draw Sun and Moon
+        const sunAngle = this.timeOfDay + 1.5 * Math.PI;
+        const moonAngle = this.timeOfDay + 0.5 * Math.PI;
+        const cx = this.canvas.width / 2;
+        const cy = this.canvas.height - 40;
+        const celestialRadius = Math.min(this.canvas.width, this.canvas.height) * 0.45;
+        
+        const sunX = cx + Math.cos(sunAngle) * celestialRadius;
+        const sunY = cy + Math.sin(sunAngle) * celestialRadius;
+        const moonX = cx + Math.cos(moonAngle) * celestialRadius;
+        const moonY = cy + Math.sin(moonAngle) * celestialRadius;
+        
+        if (sunY < this.canvas.height + 100) {
+            const sunGlow = this.ctx.createRadialGradient(sunX, sunY, 10, sunX, sunY, 150);
+            sunGlow.addColorStop(0, 'rgba(253, 224, 71, 0.4)');
+            sunGlow.addColorStop(1, 'rgba(253, 224, 71, 0)');
+            this.ctx.fillStyle = sunGlow;
+            this.ctx.beginPath(); this.ctx.arc(sunX, sunY, 150, 0, Math.PI*2); this.ctx.fill();
+            this.ctx.fillStyle = '#fbbf24';
+            this.ctx.beginPath(); this.ctx.arc(sunX, sunY, 40, 0, Math.PI*2); this.ctx.fill();
+        }
+        
+        if (moonY < this.canvas.height + 100) {
+            const moonGlow = this.ctx.createRadialGradient(moonX, moonY, 10, moonX, moonY, 100);
+            moonGlow.addColorStop(0, 'rgba(226, 232, 240, 0.3)');
+            moonGlow.addColorStop(1, 'rgba(226, 232, 240, 0)');
+            this.ctx.fillStyle = moonGlow;
+            this.ctx.beginPath(); this.ctx.arc(moonX, moonY, 100, 0, Math.PI*2); this.ctx.fill();
+            this.ctx.fillStyle = '#f8fafc';
+            this.ctx.beginPath(); this.ctx.arc(moonX, moonY, 30, 0, Math.PI*2); this.ctx.fill();
+        }
         
         // Background mountains
         this.ctx.fillStyle = '#1e293b';
@@ -688,6 +736,68 @@ class GameEngine {
             this.fogCtx.globalCompositeOperation = 'source-over';
             
             this.ctx.drawImage(this.fogCanvas, 0, 0);
+        }
+
+        // Draw Darkness / Vision Control Overlay
+        if (darknessLevel > 0) {
+            if (!this.darkCanvas) {
+                this.darkCanvas = document.createElement('canvas');
+                this.darkCtx = this.darkCanvas.getContext('2d');
+            }
+            if (this.darkCanvas.width !== this.canvas.width || this.darkCanvas.height !== this.canvas.height) {
+                this.darkCanvas.width = this.canvas.width;
+                this.darkCanvas.height = this.canvas.height;
+            }
+            
+            this.darkCtx.globalCompositeOperation = 'source-over';
+            this.darkCtx.fillStyle = `rgba(0, 0, 0, ${0.98 * darknessLevel})`;
+            this.darkCtx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+            
+            this.darkCtx.globalCompositeOperation = 'destination-out';
+            Object.values(this.players).forEach(p => {
+                let radius = 0;
+                let intensity = 1;
+                if (p.id === this.itPlayerId) {
+                    radius = 350 * this.scale;
+                    intensity = 1.0;
+                } else {
+                    radius = 120 * this.scale;
+                    intensity = 0.8;
+                }
+                
+                const gradient = this.darkCtx.createRadialGradient(
+                    p.x + p.width/2, p.y + p.height/2, 10,
+                    p.x + p.width/2, p.y + p.height/2, radius
+                );
+                gradient.addColorStop(0, `rgba(255, 255, 255, ${intensity})`);
+                gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+                this.darkCtx.fillStyle = gradient;
+                this.darkCtx.beginPath();
+                this.darkCtx.arc(p.x + p.width/2, p.y + p.height/2, radius, 0, Math.PI*2);
+                this.darkCtx.fill();
+            });
+            this.darkCtx.globalCompositeOperation = 'source-over';
+            
+            this.ctx.drawImage(this.darkCanvas, 0, 0);
+            
+            // Draw IT Lantern Glow Overlay
+            const itP = this.players[this.itPlayerId];
+            if (itP && itP.stunTimer <= 0) {
+                const lanternGlow = this.ctx.createRadialGradient(
+                    itP.x + itP.width/2, itP.y + itP.height/2, 10,
+                    itP.x + itP.width/2, itP.y + itP.height/2, 350 * this.scale
+                );
+                const pulse = Math.sin(Date.now() / 150) * 0.1 + 0.9;
+                lanternGlow.addColorStop(0, `rgba(220, 38, 38, ${0.4 * darknessLevel * pulse})`);
+                lanternGlow.addColorStop(1, 'rgba(220, 38, 38, 0)');
+                
+                this.ctx.globalCompositeOperation = 'screen';
+                this.ctx.fillStyle = lanternGlow;
+                this.ctx.beginPath();
+                this.ctx.arc(itP.x + itP.width/2, itP.y + itP.height/2, 350 * this.scale, 0, Math.PI*2);
+                this.ctx.fill();
+                this.ctx.globalCompositeOperation = 'source-over';
+            }
         }
     }
 
