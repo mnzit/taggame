@@ -111,6 +111,7 @@ class GameEngine {
 
     addPlayer(id, name) {
         const colors = ['#38bdf8', '#a3e635', '#f472b6', '#fbbf24', '#a855f7'];
+        const armColors = ['#0284c7', '#65a30d', '#db2777', '#d97706', '#7e22ce'];
         const colorIndex = typeof id === 'number' ? (id - 1) % colors.length : Object.keys(this.players).length % colors.length;
         
         this.players[id] = {
@@ -123,6 +124,7 @@ class GameEngine {
             vx: 0,
             vy: 0,
             color: colors[colorIndex],
+            armColor: armColors[colorIndex],
             inputX: 0,
             isJumping: false,
             grounded: false,
@@ -558,8 +560,8 @@ class GameEngine {
         }
 
         // Draw Arms
-        this.ctx.fillStyle = p.color; // Arms same color as body
-        if (isIt) this.ctx.fillStyle = (this.tagCooldown > 0 && Math.floor(time/200)%2 !== 0) ? '#fca5a5' : '#ef4444';
+        this.ctx.fillStyle = p.armColor || '#000000'; // Darker arm color for contrast
+        if (isIt) this.ctx.fillStyle = (this.tagCooldown > 0 && Math.floor(time/200)%2 !== 0) ? '#fca5a5' : '#991b1b'; // Darker red for IT arms
         
         this.ctx.beginPath();
         if (!p.grounded && p.vy < 0) {
