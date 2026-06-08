@@ -517,9 +517,12 @@ class GameEngine {
         }
         
         // Day/Night Cycle factors
-        const timeFactor = -Math.cos(this.timeOfDay); 
-        const darknessLevel = Math.max(0, timeFactor); // 0 to 1
-        const dayLevel = Math.max(0, -timeFactor); // 0 to 1
+        const timeFactor = -Math.cos(this.timeOfDay); // -1 (noon) to 1 (midnight)
+        
+        // Push the onset of darkness so it only happens when the sun is further down
+        // timeFactor > 0.2 means the sun is below the horizon
+        const darknessLevel = Math.max(0, (timeFactor - 0.2) / 0.8); // 0 to 1
+        const dayLevel = Math.max(0, (-timeFactor - 0.2) / 0.8); // 0 to 1
         
         // Background colors interpolated based on cycle
         const skyGrad = this.ctx.createLinearGradient(0, 0, 0, this.canvas.height);
@@ -755,15 +758,11 @@ class GameEngine {
             
             this.darkCtx.globalCompositeOperation = 'destination-out';
             Object.values(this.players).forEach(p => {
-                let radius = 0;
-                let intensity = 1;
-                if (p.id === this.itPlayerId) {
-                    radius = 350 * this.scale;
-                    intensity = 1.0;
-                } else {
-                    radius = 120 * this.scale;
-                    intensity = 0.8;
-                }
+                let baseRadius = (p.id === this.itPlayerId) ? 350 * this.scale : 120 * this.scale;
+                let intensity = (p.id === this.itPlayerId) ? 1.0 : 0.8;
+                
+                // Expand vision drastically as darkness lifts
+                let radius = baseRadius + (this.canvas.width * 1.5 * Math.pow(1 - darknessLevel, 3));
                 
                 const gradient = this.darkCtx.createRadialGradient(
                     p.x + p.width/2, p.y + p.height/2, 10,
@@ -783,9 +782,10 @@ class GameEngine {
             // Draw IT Lantern Glow Overlay
             const itP = this.players[this.itPlayerId];
             if (itP && itP.stunTimer <= 0) {
+                let lanternRadius = 350 * this.scale + (this.canvas.width * Math.pow(1 - darknessLevel, 2));
                 const lanternGlow = this.ctx.createRadialGradient(
                     itP.x + itP.width/2, itP.y + itP.height/2, 10,
-                    itP.x + itP.width/2, itP.y + itP.height/2, 350 * this.scale
+                    itP.x + itP.width/2, itP.y + itP.height/2, lanternRadius
                 );
                 const pulse = Math.sin(Date.now() / 150) * 0.1 + 0.9;
                 lanternGlow.addColorStop(0, `rgba(220, 38, 38, ${0.4 * darknessLevel * pulse})`);
@@ -794,7 +794,7 @@ class GameEngine {
                 this.ctx.globalCompositeOperation = 'screen';
                 this.ctx.fillStyle = lanternGlow;
                 this.ctx.beginPath();
-                this.ctx.arc(itP.x + itP.width/2, itP.y + itP.height/2, 350 * this.scale, 0, Math.PI*2);
+                this.ctx.arc(itP.x + itP.width/2, itP.y + itP.height/2, lanternRadius, 0, Math.PI*2);
                 this.ctx.fill();
                 this.ctx.globalCompositeOperation = 'source-over';
             }
