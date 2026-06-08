@@ -77,7 +77,9 @@ class GameEngine {
     }
 
     addPlayer(id, name) {
-        const colors = ['#38bdf8', '#a3e635', '#f472b6', '#fbbf24'];
+        const colors = ['#38bdf8', '#a3e635', '#f472b6', '#fbbf24', '#a855f7'];
+        const colorIndex = typeof id === 'number' ? (id - 1) % colors.length : Object.keys(this.players).length % colors.length;
+        
         this.players[id] = {
             id: id,
             name: name,
@@ -87,7 +89,7 @@ class GameEngine {
             height: 40,
             vx: 0,
             vy: 0,
-            color: colors[(id - 1) % colors.length],
+            color: colors[colorIndex],
             inputX: 0,
             isJumping: false,
             grounded: false
@@ -296,8 +298,56 @@ class GameEngine {
 // Global initialization
 window.gameEngine = new GameEngine();
 
+window.joinLocal = function() {
+    if (window.gameEngine && !window.gameEngine.players['local']) {
+        window.gameEngine.addPlayer('local', 'Host (PC)');
+        const btn = document.getElementById('btn-join-local');
+        btn.innerText = 'LOCAL PLAYER JOINED';
+        btn.classList.replace('bg-blue-500', 'bg-slate-600');
+        btn.classList.replace('hover:bg-blue-400', 'hover:bg-slate-600');
+        btn.disabled = true;
+        
+        const countEl = document.getElementById('player-count');
+        countEl.innerText = parseInt(countEl.innerText) + 1;
+        document.getElementById('btn-start').classList.remove('hidden');
+    }
+};
+
 window.startGame = function() {
     document.getElementById('lobby-modal').classList.add('hidden');
     document.getElementById('game-screen').classList.remove('hidden');
     window.gameEngine.start();
 };
+
+// Local Keyboard Controls
+window.addEventListener('keydown', (e) => {
+    if (!window.gameEngine || !window.gameEngine.isRunning) return;
+    const p = window.gameEngine.players['local'];
+    if (!p) return;
+
+    if (e.code === 'Space' || e.code === 'KeyW' || e.code === 'ArrowUp') {
+        window.gameEngine.handlePlayerJump('local', true);
+    }
+    if (e.code === 'KeyA' || e.code === 'ArrowLeft') {
+        window.gameEngine.handlePlayerMove('local', -1, 0);
+    }
+    if (e.code === 'KeyD' || e.code === 'ArrowRight') {
+        window.gameEngine.handlePlayerMove('local', 1, 0);
+    }
+});
+
+window.addEventListener('keyup', (e) => {
+    if (!window.gameEngine || !window.gameEngine.isRunning) return;
+    const p = window.gameEngine.players['local'];
+    if (!p) return;
+
+    if (e.code === 'Space' || e.code === 'KeyW' || e.code === 'ArrowUp') {
+        window.gameEngine.handlePlayerJump('local', false);
+    }
+    if (e.code === 'KeyA' || e.code === 'ArrowLeft') {
+        if (p.inputX === -1) window.gameEngine.handlePlayerMove('local', 0, 0);
+    }
+    if (e.code === 'KeyD' || e.code === 'ArrowRight') {
+        if (p.inputX === 1) window.gameEngine.handlePlayerMove('local', 0, 0);
+    }
+});
