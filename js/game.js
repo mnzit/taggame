@@ -639,24 +639,32 @@ class SoundEngine {
 window.soundEngine = new SoundEngine();
 window.gameEngine = new GameEngine();
 
+const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+
 window.joinLocal = function() {
     if (!window.gameEngine) return;
     
     let added = false;
     if (!window.gameEngine.players['local1']) {
-        window.gameEngine.addPlayer('local1', 'P1 (WASD)');
+        window.gameEngine.addPlayer('local1', isTouchDevice ? 'P1 (Touch)' : 'P1 (WASD)');
         added = true;
-    } else if (!window.gameEngine.players['local2']) {
+        
+        if (isTouchDevice) {
+            document.getElementById('local-mobile-controls').classList.remove('hidden');
+            window.initLocalJoystick();
+        }
+    } else if (!isTouchDevice && !window.gameEngine.players['local2']) {
         window.gameEngine.addPlayer('local2', 'P2 (Arrows)');
         added = true;
     }
     
     if (added) {
         const count = (window.gameEngine.players['local1'] ? 1 : 0) + (window.gameEngine.players['local2'] ? 1 : 0);
+        const max = isTouchDevice ? 1 : 2;
         const btn = document.getElementById('btn-join-local');
-        btn.innerText = `ADD LOCAL PLAYER (${count}/2)`;
+        btn.innerText = `ADD LOCAL PLAYER (${count}/${max})`;
         
-        if (count >= 2) {
+        if (count >= max) {
             btn.classList.replace('bg-blue-500', 'bg-slate-600');
             btn.classList.replace('hover:bg-blue-400', 'hover:bg-slate-600');
             btn.disabled = true;
@@ -666,6 +674,45 @@ window.joinLocal = function() {
         countEl.innerText = parseInt(countEl.innerText) + 1;
         document.getElementById('btn-start').classList.remove('hidden');
     }
+};
+
+let localJoy = null;
+window.initLocalJoystick = function() {
+    if (localJoy) return;
+    const zone = document.getElementById('local-joystick-zone');
+    
+    // Check if nipplejs is loaded
+    if (typeof nipplejs === 'undefined') {
+        console.error("NippleJS not loaded");
+        return;
+    }
+    
+    localJoy = nipplejs.create({
+        zone: zone,
+        mode: 'static',
+        position: { left: '50%', top: '50%' },
+        color: '#ffffff',
+        size: 100
+    });
+    
+    localJoy.on('move', (evt, data) => {
+        let x = Math.cos(data.angle.radian);
+        window.gameEngine.handlePlayerMove('local1', x, 0); // Ignore Y for horizontal platformer
+    });
+    localJoy.on('end', () => {
+        window.gameEngine.handlePlayerMove('local1', 0, 0);
+    });
+    
+    const jumpBtn = document.getElementById('btn-local-jump');
+    jumpBtn.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        window.gameEngine.handlePlayerJump('local1', true);
+    }, {passive: false});
+    
+    jumpBtn.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        window.gameEngine.handlePlayerJump('local1', false);
+    }, {passive: false});
 };
 
 window.startGame = function() {
