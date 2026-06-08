@@ -97,10 +97,8 @@ class GameEngine {
     resize() {
         this.canvas.width = window.innerWidth;
         this.canvas.height = window.innerHeight;
-        // Re-generate platforms if not running to fit screen
-        if (!this.isRunning) {
-            this.loadMap();
-        }
+        // Re-generate platforms to fit screen whenever resized or rotated
+        this.loadMap();
     }
 
     setMap(mapId) {
