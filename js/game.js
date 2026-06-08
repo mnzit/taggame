@@ -1208,6 +1208,25 @@ class SoundEngine {
 
         noiseSource.start();
     }
+
+    playPowerup() {
+        if (this.ctx.state === 'suspended') this.ctx.resume();
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(400, this.ctx.currentTime);
+        osc.frequency.linearRampToValueAtTime(800, this.ctx.currentTime + 0.1);
+        osc.frequency.linearRampToValueAtTime(1200, this.ctx.currentTime + 0.2);
+        
+        gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.3);
+        
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.3);
+    }
 }
 
 // Global initialization
