@@ -7,14 +7,22 @@ const GAME_MAPS = {
             // Ground floor
             p.push({ x: 0, y: h - 40, width: w, height: 40 });
             
-            // 4 elevated floors
-            const gap = (h - 150) / 4;
-            for(let i = 1; i <= 4; i++) {
+            // 3 elevated floors (removed the very top one)
+            const gap = (h - 150) / 4; // keep the gap distance the same, just less floors
+            for(let i = 1; i <= 3; i++) {
                 const y = h - 40 - (i * gap);
-                // Create platforms with gaps to jump through
-                p.push({ x: w * 0.05, y: y, width: w * 0.25, height: 20 });
-                p.push({ x: w * 0.35, y: y, width: w * 0.3, height: 20 });
-                p.push({ x: w * 0.7, y: y, width: w * 0.25, height: 20 });
+                
+                // Create randomized platform segments for this floor level
+                let numSegments = 2 + Math.floor(Math.random() * 2); // 2 or 3 segments per floor
+                let availableWidth = w / numSegments;
+                
+                for(let j = 0; j < numSegments; j++) {
+                    // Random width between 15% and 25% of screen width
+                    let pw = w * (0.15 + Math.random() * 0.1); 
+                    // Random x position within this segment's allocated zone
+                    let px = (j * availableWidth) + Math.random() * (availableWidth - pw);
+                    p.push({ x: px, y: y, width: pw, height: 20 });
+                }
             }
             return p;
         }
@@ -49,7 +57,7 @@ class GameEngine {
         // Physics constants
         this.gravity = 800; // pixels per second squared
         this.moveSpeed = 400; // pixels per second
-        this.jumpForce = -650; // pixels per second
+        this.jumpForce = -800; // significantly increased jump power
         this.maxFallSpeed = 1000;
         
         // Tag Logic
@@ -92,7 +100,8 @@ class GameEngine {
             color: colors[colorIndex],
             inputX: 0,
             isJumping: false,
-            grounded: false
+            grounded: false,
+            stunTimer: 0
         };
         
         // If first player, make them IT
@@ -181,8 +190,14 @@ class GameEngine {
         const pList = Object.values(this.players);
         
         pList.forEach(p => {
-            // Apply horizontal input
-            p.vx = p.inputX * this.moveSpeed;
+            // Handle Stun
+            if (p.stunTimer > 0) {
+                p.stunTimer -= dt * 1000;
+                p.vx = 0; // Frozen horizontally
+            } else {
+                // Apply horizontal input
+                p.vx = p.inputX * this.moveSpeed;
+            }
             
             // Apply gravity
             p.vy += this.gravity * dt;
@@ -229,16 +244,23 @@ class GameEngine {
         const itPlayer = this.players[this.itPlayerId];
         if (!itPlayer) return;
         
+        let taggedSomeone = false;
         Object.values(this.players).forEach(p => {
+            if (taggedSomeone) return;
             if (p.id !== this.itPlayerId) {
                 if (this.checkCollision(itPlayer, p)) {
                     // Tag!
                     this.itPlayerId = p.id;
-                    this.tagCooldown = 2000; // 2 seconds cooldown
+                    this.tagCooldown = 2000; // 2 seconds global tag cooldown
                     
-                    // Add a tiny bounce effect to both
-                    itPlayer.vy = -200;
-                    p.vy = -300;
+                    // Freeze the new IT player for 1.5 seconds so the old IT can run
+                    p.stunTimer = 1500;
+                    
+                    // Add a tiny bounce effect to separate them
+                    itPlayer.vy = -300;
+                    p.vy = -200;
+                    
+                    taggedSomeone = true;
                 }
             }
         });
@@ -264,17 +286,29 @@ class GameEngine {
             const isIt = p.id === this.itPlayerId;
             
             if (isIt) {
-                // Draw glowing aura
-                this.ctx.shadowBlur = 20;
-                this.ctx.shadowColor = '#ef4444';
-                this.ctx.fillStyle = '#ef4444'; // Red for IT
+                // If on cooldown, blink or show grey-ish red
+                if (this.tagCooldown > 0) {
+                    this.ctx.fillStyle = (Math.floor(performance.now() / 200) % 2 === 0) ? '#ef4444' : '#fca5a5';
+                    this.ctx.shadowBlur = 10;
+                    this.ctx.shadowColor = '#fca5a5';
+                } else {
+                    this.ctx.shadowBlur = 20;
+                    this.ctx.shadowColor = '#ef4444';
+                    this.ctx.fillStyle = '#ef4444'; // Red for IT
+                }
             } else {
                 this.ctx.shadowBlur = 0;
                 this.ctx.fillStyle = p.color;
+                
+                // If this normal player is stunned (rare, but possible if mechanics change)
+                if (p.stunTimer > 0) {
+                    this.ctx.globalAlpha = 0.5;
+                }
             }
             
             // Draw square
             this.ctx.fillRect(p.x, p.y, p.width, p.height);
+            this.ctx.globalAlpha = 1.0;
             
             // Reset shadow
             this.ctx.shadowBlur = 0;
@@ -289,7 +323,10 @@ class GameEngine {
             if (isIt) {
                 this.ctx.fillStyle = '#ef4444';
                 this.ctx.font = 'bold 16px "Fredoka"';
-                this.ctx.fillText('IT!', p.x + p.width/2, p.y - 28);
+                let text = 'IT!';
+                if (this.tagCooldown > 0) text = 'COOLDOWN';
+                if (p.stunTimer > 0) text = 'FROZEN!';
+                this.ctx.fillText(text, p.x + p.width/2, p.y - 28);
             }
         });
     }
