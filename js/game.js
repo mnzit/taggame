@@ -55,10 +55,10 @@ class GameEngine {
         this.isRunning = false;
         
         // Physics constants
-        this.gravity = 800; // pixels per second squared
-        this.moveSpeed = 400; // pixels per second
-        this.jumpForce = -800; // significantly increased jump power
-        this.maxFallSpeed = 1000;
+        this.gravity = 1400; // pixels per second squared (snappier fall)
+        this.moveSpeed = 450; // slightly faster horizontal movement
+        this.jumpForce = -1050; // increased to match new gravity
+        this.maxFallSpeed = 1500;
         
         // Tag Logic
         this.itPlayerId = null;
