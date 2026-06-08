@@ -108,6 +108,12 @@ class GameEngine {
         this.weatherParticles = [];
         this.windSoundTimer = 0;
         
+        // Power-ups
+        this.powerups = [];
+        this.powerupSpawnTimer = 5.0;
+        this.slowMoTimer = 0;
+        this.slowMoPlayerId = null;
+        
         // Game Settings (Read from Lobby)
         this.settings = {
             timeMode: document.getElementById('setting-time') ? document.getElementById('setting-time').value : 'cycle',
@@ -333,12 +339,45 @@ class GameEngine {
             }
         });
 
+        // Power-Up Spawning
+        this.powerupSpawnTimer -= dt;
+        if (this.powerupSpawnTimer <= 0) {
+            this.powerupSpawnTimer = 10 + Math.random() * 10; // Every 10-20 seconds
+            if (this.powerups.length < 3) {
+                // Pick a random platform (prefer elevated ones)
+                const elevatedPlats = this.platforms.slice(1);
+                const plat = elevatedPlats[Math.floor(Math.random() * elevatedPlats.length)];
+                if (plat) {
+                    this.powerups.push({
+                        x: plat.x + Math.random() * (plat.width - 30),
+                        y: plat.y - 30,
+                        width: 30,
+                        height: 30,
+                        type: 'time_warp',
+                        floatY: 0,
+                        time: 0
+                    });
+                }
+            }
+        }
+        
+        // Slow Mo Update
+        if (this.slowMoTimer > 0) {
+            this.slowMoTimer -= dt;
+        }
+
         const pList = Object.values(this.players);
         
         pList.forEach(p => {
+            // Apply Slow Mo dt
+            let localDt = dt;
+            if (this.slowMoTimer > 0 && p.id !== this.slowMoPlayerId) {
+                localDt = dt * 0.2; // 20% speed
+            }
+            
             // Handle Stun
             if (p.stunTimer > 0) {
-                p.stunTimer -= dt * 1000;
+                p.stunTimer -= localDt * 1000;
                 p.vx = 0; // Frozen horizontally
             } else {
                 // Apply horizontal input
@@ -368,23 +407,23 @@ class GameEngine {
             
             // Animation walk cycle
             if (Math.abs(p.vx) > 0 && p.grounded) {
-                p.walkCycle += dt * 15;
+                p.walkCycle += localDt * 15;
             } else {
                 p.walkCycle = 0;
             }
             
             // Apply gravity
-            p.vy += this.gravity * dt;
+            p.vy += this.gravity * localDt;
             if (p.vy > this.maxFallSpeed) p.vy = this.maxFallSpeed;
             
             // Apply Weather (Wind)
             if (!p.grounded && p.stunTimer <= 0) {
-                if (this.currentWeather === 'wind_left') p.vx -= 600 * dt;
-                if (this.currentWeather === 'wind_right') p.vx += 600 * dt;
+                if (this.currentWeather === 'wind_left') p.vx -= 600 * localDt;
+                if (this.currentWeather === 'wind_right') p.vx += 600 * localDt;
             }
             
             // Move X
-            p.x += p.vx * dt;
+            p.x += p.vx * localDt;
             
             // Screen walls X (Left and Right)
             if (p.x < 0) {
@@ -396,7 +435,7 @@ class GameEngine {
             }
             
             // Move Y
-            p.y += p.vy * dt;
+            p.y += p.vy * localDt;
             p.grounded = false;
             
             // Screen ceiling (Top)
@@ -415,7 +454,7 @@ class GameEngine {
                     // Colliding from above (landing on platform)
                     if (p.vy >= 0 && 
                         p.y + p.height > plat.y && 
-                        p.y + p.height - (p.vy * dt) <= plat.y + 15) {
+                        p.y + p.height - (p.vy * localDt) <= plat.y + 15) {
                         
                         p.y = plat.y - p.height;
                         p.vy = 0;
@@ -429,7 +468,7 @@ class GameEngine {
                     // Colliding from below (bonking head)
                     else if (p.vy < 0 && 
                              p.y < plat.y + plat.height && 
-                             p.y - (p.vy * dt) >= plat.y + plat.height - 15) {
+                             p.y - (p.vy * localDt) >= plat.y + plat.height - 15) {
                              
                         p.y = plat.y + plat.height;
                         p.vy = 0; // stop upward momentum
@@ -442,6 +481,19 @@ class GameEngine {
                 p.y = this.canvas.height - p.height;
                 p.vy = 0;
                 p.grounded = true;
+            }
+            
+            // Check Power-ups
+            for (let i = this.powerups.length - 1; i >= 0; i--) {
+                let pu = this.powerups[i];
+                if (this.checkCollision(p, pu)) {
+                    if (pu.type === 'time_warp') {
+                        this.slowMoTimer = 2.0; // 2 seconds slow-mo
+                        this.slowMoPlayerId = p.id;
+                        if (window.soundEngine) window.soundEngine.playPowerup();
+                    }
+                    this.powerups.splice(i, 1);
+                }
             }
         });
 
@@ -711,6 +763,55 @@ class GameEngine {
                 this.ctx.fillText(text, p.x + p.width/2 - 10, p.y - 12);
             }
         });
+
+        // Draw Power-ups
+        this.powerups.forEach(pu => {
+            pu.time += 0.05;
+            pu.floatY = Math.sin(pu.time) * 5;
+            
+            this.ctx.save();
+            this.ctx.translate(pu.x + pu.width/2, pu.y + pu.height/2 + pu.floatY);
+            
+            if (pu.type === 'time_warp') {
+                this.ctx.shadowColor = '#3b82f6';
+                this.ctx.shadowBlur = 15;
+                this.ctx.fillStyle = '#60a5fa';
+                this.ctx.beginPath();
+                this.ctx.arc(0, 0, 12, 0, Math.PI*2);
+                this.ctx.fill();
+                
+                this.ctx.shadowBlur = 0;
+                this.ctx.strokeStyle = '#fff';
+                this.ctx.lineWidth = 2;
+                this.ctx.beginPath();
+                this.ctx.arc(0, 0, 12, 0, Math.PI*2);
+                this.ctx.stroke();
+                
+                this.ctx.beginPath();
+                this.ctx.moveTo(0, 0);
+                this.ctx.lineTo(0, -6); // minute hand
+                this.ctx.moveTo(0, 0);
+                this.ctx.lineTo(4, 2); // hour hand
+                this.ctx.stroke();
+            }
+            this.ctx.restore();
+        });
+
+        // Slow Mo screen effect
+        if (this.slowMoTimer > 0) {
+            this.ctx.fillStyle = 'rgba(59, 130, 246, 0.15)'; // faint blue tint
+            this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+            
+            // Draw vignette
+            const grad = this.ctx.createRadialGradient(
+                this.canvas.width/2, this.canvas.height/2, this.canvas.height * 0.3,
+                this.canvas.width/2, this.canvas.height/2, Math.max(this.canvas.width, this.canvas.height) * 0.7
+            );
+            grad.addColorStop(0, 'rgba(59, 130, 246, 0)');
+            grad.addColorStop(1, 'rgba(59, 130, 246, 0.4)');
+            this.ctx.fillStyle = grad;
+            this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        }
 
         // Draw Particles
         this.particles.forEach(p => {
@@ -1027,7 +1128,7 @@ class SoundEngine {
         gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.1);
         
         osc.start();
-        osc.stop(this.ctx.currentTime + 0.1);
+        osc.stop(this.ctx.currentTime + 0.3);
     }
 
     playTag() {
