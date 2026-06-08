@@ -95,6 +95,11 @@ class GameEngine {
         this.itPlayerId = null;
         this.tagCooldown = 0; // ms
         
+        // Effects
+        this.particles = [];
+        this.shakeDuration = 0;
+        this.anxietyLevel = 0;
+        
         this.resize();
         window.addEventListener('resize', () => this.resize());
     }
@@ -307,31 +312,61 @@ class GameEngine {
         if (!itPlayer) return;
         
         let taggedSomeone = false;
-        Object.values(this.players).forEach(p => {
+        Object.values(this.players).forEach(p1 => {
             if (taggedSomeone) return;
-            if (p.id !== this.itPlayerId) {
-                if (this.checkCollision(itPlayer, p)) {
-                    // Tag!
-                    this.itPlayerId = p.id;
-                    this.tagCooldown = 2000; // 2 seconds global tag cooldown
-                    
-                    // Freeze the new IT player for 1.5 seconds so the old IT can run
-                    p.stunTimer = 1500;
-                    
-                    // Play tag sound
-                    if (window.soundEngine) window.soundEngine.playTag();
-                    
-                    // Add a tiny bounce effect to separate them
-                    itPlayer.vy = -300;
-                    p.vy = -200;
-                    
-                    taggedSomeone = true;
+            Object.values(this.players).forEach(p2 => {
+                if (taggedSomeone || p1.id === p2.id) return;
+                if (this.checkCollision(p1, p2)) {
+                    if (p1.id === this.itPlayerId || p2.id === this.itPlayerId) {
+                        // Tag!
+                        if (window.soundEngine) window.soundEngine.playTag();
+                        this.shakeDuration = 0.3; // Screen shake for 300ms
+                        
+                        const tagged = p1.id === this.itPlayerId ? p2 : p1;
+                        
+                        // Spawn explosion particles
+                        const cx = tagged.x + tagged.width/2;
+                        const cy = tagged.y + tagged.height/2;
+                        for (let i=0; i<30; i++) {
+                            this.particles.push({
+                                x: cx,
+                                y: cy,
+                                vx: (Math.random() - 0.5) * 800 * this.scale,
+                                vy: (Math.random() - 0.5) * 800 * this.scale,
+                                life: 0.3 + Math.random() * 0.4,
+                                color: tagged.color
+                            });
+                        }
+                        
+                        this.itPlayerId = tagged.id;
+                        this.tagCooldown = 2000; // 2 seconds before next tag possible
+                        
+                        // Freeze the new IT player for 1.5 seconds so the old IT can run
+                        tagged.stunTimer = 1500;
+                        
+                        // Add a tiny bounce effect to separate them
+                        itPlayer.vy = -300;
+                        tagged.vy = -200;
+                        
+                        taggedSomeone = true;
+                    }
                 }
-            }
+            });
         });
     }
 
     draw() {
+        // Clear canvas
+        this.ctx.fillStyle = '#0f172a'; // slate-900 background
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+        // Apply screen shake
+        this.ctx.save();
+        if (this.shakeDuration > 0) {
+            const magnitude = (this.shakeDuration / 0.3) * 20 * this.scale;
+            this.ctx.translate((Math.random()-0.5)*magnitude, (Math.random()-0.5)*magnitude);
+        }
+        
         // Draw sky gradient
         const grad = this.ctx.createLinearGradient(0, 0, 0, this.canvas.height);
         grad.addColorStop(0, '#020617'); // Dark night sky
@@ -421,6 +456,26 @@ class GameEngine {
                 this.ctx.fillText(text, p.x + p.width/2 - 10, p.y - 12);
             }
         });
+
+        // Draw Particles
+        this.particles.forEach(p => {
+            this.ctx.globalAlpha = p.life / 0.7; // fade out
+            this.ctx.fillStyle = p.color;
+            this.ctx.beginPath();
+            this.ctx.arc(p.x, p.y, 6 * this.scale, 0, Math.PI * 2);
+            this.ctx.fill();
+        });
+        this.ctx.globalAlpha = 1.0;
+
+        // Restore context from screen shake
+        this.ctx.restore();
+
+        // Draw Anxiety Flashing Border
+        if (this.anxietyLevel > 0) {
+            const pulse = (Math.sin(Date.now() / 80) * 0.5 + 0.5) * this.anxietyLevel;
+            this.ctx.fillStyle = `rgba(220, 38, 38, ${pulse * 0.3})`;
+            this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        }
     }
 
     drawCharacter(p, isIt) {
@@ -428,22 +483,9 @@ class GameEngine {
         const cy = p.y + p.height / 2;
         const time = performance.now();
         
-        let isScared = false;
-        if (!isIt && this.itPlayerId) {
-            const itPlayer = this.players[this.itPlayerId];
-            if (itPlayer && this.tagCooldown <= 0) {
-                const dx = cx - (itPlayer.x + itPlayer.width / 2);
-                const dy = cy - (itPlayer.y + itPlayer.height / 2);
-                const dist = Math.sqrt(dx * dx + dy * dy);
-                if (dist < 180) { // 180px radius for getting scared
-                    isScared = true;
-                }
-            }
-        }
-        
         let shakeX = 0;
         let shakeY = 0;
-        if (isScared && p.stunTimer <= 0) {
+        if (p.isScared && p.stunTimer <= 0) {
             shakeX = (Math.random() - 0.5) * 4;
             shakeY = (Math.random() - 0.5) * 4;
         }
@@ -604,6 +646,7 @@ class SoundEngine {
     constructor() {
         // Initialize audio context lazily on first user interaction if needed
         this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        this.lastHeartbeat = 0;
     }
     
     playJump() {
@@ -626,20 +669,45 @@ class SoundEngine {
 
     playTag() {
         if (this.ctx.state === 'suspended') this.ctx.resume();
+        // Satisfying thud explosion
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
         osc.connect(gain);
         gain.connect(this.ctx.destination);
         
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(600, this.ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(100, this.ctx.currentTime + 0.3);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(150, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.5);
         
-        gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.3);
+        gain.gain.setValueAtTime(1.0, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.5);
         
         osc.start();
-        osc.stop(this.ctx.currentTime + 0.3);
+        osc.stop(this.ctx.currentTime + 0.5);
+    }
+
+    playHeartbeat(intensity) {
+        if (this.ctx.state === 'suspended') return;
+        const now = this.ctx.currentTime;
+        // Pulse faster as intensity approaches 1
+        const interval = Math.max(0.2, 1.0 - (intensity * 0.8));
+        if (now - this.lastHeartbeat < interval) return; 
+        this.lastHeartbeat = now;
+        
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(60, now);
+        osc.frequency.exponentialRampToValueAtTime(20, now + 0.15);
+        
+        gain.gain.setValueAtTime(0.5 * intensity, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+        
+        osc.start(now);
+        osc.stop(now + 0.15);
     }
 }
 
