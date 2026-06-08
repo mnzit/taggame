@@ -24,6 +24,26 @@ function updateHostLobby() {
     
     let connectedCount = 0;
     
+    // First, render local players
+    if (window.gameEngine) {
+        Object.values(window.gameEngine.players).forEach(p => {
+            if (p.id.toString().startsWith('local')) {
+                connectedCount++;
+                const row = document.createElement('div');
+                row.className = 'flex items-center justify-between p-3 rounded-xl bg-slate-800 border border-slate-700';
+                row.innerHTML = `
+                    <span class="text-sm font-bold text-indigo-300">
+                        ${p.name}
+                    </span>
+                    <span class="flex items-center gap-2">
+                        <span class="text-xs font-bold text-emerald-400">Local</span>
+                    </span>
+                `;
+                list.appendChild(row);
+            }
+        });
+    }
+    
     for (let s = 1; s <= maxPlayers; s++) {
         const connected = peers[s] && peers[s].connected;
         if (connected) connectedCount++;

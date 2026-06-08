@@ -1429,10 +1429,14 @@ window.joinLocal = function() {
             btn.disabled = true;
         }
         
+        if (window.updateHostLobby) window.updateHostLobby();
+        
         const countEl = document.getElementById('player-count');
         countEl.innerText = parseInt(countEl.innerText) + 1;
         document.getElementById('btn-start').classList.remove('hidden');
     }
+    
+    if (nameInput) nameInput.value = ''; // clear input
 };
 
 let localJoy = null;
