@@ -49,7 +49,7 @@ class GameEngine {
         // Physics constants
         this.gravity = 800; // pixels per second squared
         this.moveSpeed = 400; // pixels per second
-        this.jumpForce = -500; // pixels per second
+        this.jumpForce = -650; // pixels per second
         this.maxFallSpeed = 1000;
         
         // Tag Logic
