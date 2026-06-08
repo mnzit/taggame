@@ -1029,25 +1029,25 @@ class GameEngine {
             // Running legs
             const legSwing = Math.sin(p.walkCycle) * 10;
             this.ctx.beginPath();
-            this.ctx.roundRect(-10 + legSwing, p.height/2 - 10, 8, 12, 4);
-            this.ctx.roundRect(2 - legSwing, p.height/2 - 10, 8, 12, 4);
+            this.ctx.roundRect(-10 + legSwing, 10, 8, 12, 4);
+            this.ctx.roundRect(2 - legSwing, 10, 8, 12, 4);
             this.ctx.fill();
         } else if (!p.grounded) {
             // Jumping legs
             this.ctx.beginPath();
             if (p.vy < 0) { // Going up
-                this.ctx.roundRect(-12, p.height/2 - 5, 8, 10, 4);
-                this.ctx.roundRect(4, p.height/2 - 5, 8, 10, 4);
+                this.ctx.roundRect(-12, 15, 8, 10, 4);
+                this.ctx.roundRect(4, 15, 8, 10, 4);
             } else { // Falling
-                this.ctx.roundRect(-10, p.height/2 - 12, 8, 14, 4);
-                this.ctx.roundRect(2, p.height/2 - 12, 8, 14, 4);
+                this.ctx.roundRect(-10, 8, 8, 14, 4);
+                this.ctx.roundRect(2, 8, 8, 14, 4);
             }
             this.ctx.fill();
         } else {
             // Idle legs
             this.ctx.beginPath();
-            this.ctx.roundRect(-10, p.height/2 - 8, 8, 10, 4);
-            this.ctx.roundRect(2, p.height/2 - 8, 8, 10, 4);
+            this.ctx.roundRect(-10, 12, 8, 10, 4);
+            this.ctx.roundRect(2, 12, 8, 10, 4);
             this.ctx.fill();
         }
 
