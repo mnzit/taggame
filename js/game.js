@@ -1,10 +1,48 @@
-// Game Engine & Logic
+// Game Maps Registry - Easily extendible by adding new objects
+const GAME_MAPS = {
+    '5_floors': {
+        name: '5 Floors',
+        build: (w, h) => {
+            const p = [];
+            // Ground floor
+            p.push({ x: 0, y: h - 40, width: w, height: 40 });
+            
+            // 4 elevated floors
+            const gap = (h - 150) / 4;
+            for(let i = 1; i <= 4; i++) {
+                const y = h - 40 - (i * gap);
+                // Create platforms with gaps to jump through
+                p.push({ x: w * 0.05, y: y, width: w * 0.25, height: 20 });
+                p.push({ x: w * 0.35, y: y, width: w * 0.3, height: 20 });
+                p.push({ x: w * 0.7, y: y, width: w * 0.25, height: 20 });
+            }
+            return p;
+        }
+    },
+    'random': {
+        name: 'Random Chaos',
+        build: (w, h) => {
+            const p = [];
+            p.push({ x: 0, y: h - 40, width: w, height: 40 });
+            const numPlatforms = Math.floor((w * h) / 100000);
+            for (let i = 0; i < numPlatforms; i++) {
+                const pw = 150 + Math.random() * 200;
+                const px = Math.random() * (w - pw);
+                const py = 150 + Math.random() * (h - 250);
+                p.push({ x: px, y: py, width: pw, height: 20 });
+            }
+            return p;
+        }
+    }
+};
+
 class GameEngine {
     constructor() {
         this.canvas = document.getElementById('game-canvas');
         this.ctx = this.canvas.getContext('2d');
         this.players = {};
         this.platforms = [];
+        this.currentMapId = '5_floors';
         this.lastTime = 0;
         this.isRunning = false;
         
@@ -27,7 +65,14 @@ class GameEngine {
         this.canvas.height = window.innerHeight;
         // Re-generate platforms if not running to fit screen
         if (!this.isRunning) {
-            this.generatePlatforms();
+            this.loadMap();
+        }
+    }
+
+    setMap(mapId) {
+        if (GAME_MAPS[mapId]) {
+            this.currentMapId = mapId;
+            if (!this.isRunning) this.loadMap();
         }
     }
 
@@ -81,28 +126,16 @@ class GameEngine {
         }
     }
 
-    generatePlatforms() {
-        this.platforms = [];
-        const w = this.canvas.width;
-        const h = this.canvas.height;
-        
-        // Floor
-        this.platforms.push({ x: 0, y: h - 40, width: w, height: 40 });
-        
-        // Random floating platforms
-        const numPlatforms = Math.floor((w * h) / 100000); // density
-        for (let i = 0; i < numPlatforms; i++) {
-            const pw = 150 + Math.random() * 200;
-            const px = Math.random() * (w - pw);
-            const py = 150 + Math.random() * (h - 250);
-            this.platforms.push({ x: px, y: py, width: pw, height: 20 });
+    loadMap() {
+        if (GAME_MAPS[this.currentMapId]) {
+            this.platforms = GAME_MAPS[this.currentMapId].build(this.canvas.width, this.canvas.height);
         }
     }
 
     start() {
         if (this.isRunning) return;
         this.isRunning = true;
-        this.generatePlatforms();
+        this.loadMap();
         
         // Reset player positions
         Object.values(this.players).forEach(p => {
