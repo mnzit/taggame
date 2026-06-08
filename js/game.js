@@ -589,8 +589,8 @@ class GameEngine {
             this.ctx.moveTo(4, -6 + bobY); this.ctx.lineTo(10, -3 + bobY);
             this.ctx.moveTo(20, -6 + bobY); this.ctx.lineTo(14, -3 + bobY);
             this.ctx.stroke();
-        } else if (isScared) {
-            // Scared eyes (wide)
+        } else if (p.isScared) {
+            // Scared eyes (wide open)
             this.ctx.beginPath();
             this.ctx.arc(8, -2 + bobY, 3, 0, Math.PI*2);
             this.ctx.arc(16, -2 + bobY, 3, 0, Math.PI*2);
@@ -618,8 +618,8 @@ class GameEngine {
             // Jumping: hands up
             this.ctx.roundRect(0, -20 + bobY, 8, 14, 4); // back arm
             this.ctx.roundRect(-16, -15 + bobY, 8, 14, 4); // front arm
-        } else if (isScared && p.stunTimer <= 0) {
-            // Scared: hands up and jittering
+        } else if (p.isScared && p.stunTimer <= 0) {
+            // Scared arms (raised up) and jittering
             const armShakeX = (Math.random() - 0.5) * 3;
             const armShakeY = (Math.random() - 0.5) * 3;
             this.ctx.roundRect(0 + armShakeX, -20 + bobY + armShakeY, 8, 14, 4);
