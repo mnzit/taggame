@@ -640,13 +640,27 @@ window.soundEngine = new SoundEngine();
 window.gameEngine = new GameEngine();
 
 window.joinLocal = function() {
-    if (window.gameEngine && !window.gameEngine.players['local']) {
-        window.gameEngine.addPlayer('local', 'Host (PC)');
+    if (!window.gameEngine) return;
+    
+    let added = false;
+    if (!window.gameEngine.players['local1']) {
+        window.gameEngine.addPlayer('local1', 'P1 (WASD)');
+        added = true;
+    } else if (!window.gameEngine.players['local2']) {
+        window.gameEngine.addPlayer('local2', 'P2 (Arrows)');
+        added = true;
+    }
+    
+    if (added) {
+        const count = (window.gameEngine.players['local1'] ? 1 : 0) + (window.gameEngine.players['local2'] ? 1 : 0);
         const btn = document.getElementById('btn-join-local');
-        btn.innerText = 'LOCAL PLAYER JOINED';
-        btn.classList.replace('bg-blue-500', 'bg-slate-600');
-        btn.classList.replace('hover:bg-blue-400', 'hover:bg-slate-600');
-        btn.disabled = true;
+        btn.innerText = `ADD LOCAL PLAYER (${count}/2)`;
+        
+        if (count >= 2) {
+            btn.classList.replace('bg-blue-500', 'bg-slate-600');
+            btn.classList.replace('hover:bg-blue-400', 'hover:bg-slate-600');
+            btn.disabled = true;
+        }
         
         const countEl = document.getElementById('player-count');
         countEl.innerText = parseInt(countEl.innerText) + 1;
@@ -663,32 +677,36 @@ window.startGame = function() {
 // Local Keyboard Controls
 window.addEventListener('keydown', (e) => {
     if (!window.gameEngine || !window.gameEngine.isRunning) return;
-    const p = window.gameEngine.players['local'];
-    if (!p) return;
-
-    if (e.code === 'Space' || e.code === 'KeyW' || e.code === 'ArrowUp') {
-        window.gameEngine.handlePlayerJump('local', true);
+    
+    const p1 = window.gameEngine.players['local1'];
+    if (p1) {
+        if (e.code === 'Space' || e.code === 'KeyW') window.gameEngine.handlePlayerJump('local1', true);
+        if (e.code === 'KeyA') window.gameEngine.handlePlayerMove('local1', -1, 0);
+        if (e.code === 'KeyD') window.gameEngine.handlePlayerMove('local1', 1, 0);
     }
-    if (e.code === 'KeyA' || e.code === 'ArrowLeft') {
-        window.gameEngine.handlePlayerMove('local', -1, 0);
-    }
-    if (e.code === 'KeyD' || e.code === 'ArrowRight') {
-        window.gameEngine.handlePlayerMove('local', 1, 0);
+    
+    const p2 = window.gameEngine.players['local2'];
+    if (p2) {
+        if (e.code === 'ArrowUp') window.gameEngine.handlePlayerJump('local2', true);
+        if (e.code === 'ArrowLeft') window.gameEngine.handlePlayerMove('local2', -1, 0);
+        if (e.code === 'ArrowRight') window.gameEngine.handlePlayerMove('local2', 1, 0);
     }
 });
 
 window.addEventListener('keyup', (e) => {
     if (!window.gameEngine || !window.gameEngine.isRunning) return;
-    const p = window.gameEngine.players['local'];
-    if (!p) return;
-
-    if (e.code === 'Space' || e.code === 'KeyW' || e.code === 'ArrowUp') {
-        window.gameEngine.handlePlayerJump('local', false);
+    
+    const p1 = window.gameEngine.players['local1'];
+    if (p1) {
+        if (e.code === 'Space' || e.code === 'KeyW') window.gameEngine.handlePlayerJump('local1', false);
+        if (e.code === 'KeyA' && p1.inputX === -1) window.gameEngine.handlePlayerMove('local1', 0, 0);
+        if (e.code === 'KeyD' && p1.inputX === 1) window.gameEngine.handlePlayerMove('local1', 0, 0);
     }
-    if (e.code === 'KeyA' || e.code === 'ArrowLeft') {
-        if (p.inputX === -1) window.gameEngine.handlePlayerMove('local', 0, 0);
-    }
-    if (e.code === 'KeyD' || e.code === 'ArrowRight') {
-        if (p.inputX === 1) window.gameEngine.handlePlayerMove('local', 0, 0);
+    
+    const p2 = window.gameEngine.players['local2'];
+    if (p2) {
+        if (e.code === 'ArrowUp') window.gameEngine.handlePlayerJump('local2', false);
+        if (e.code === 'ArrowLeft' && p2.inputX === -1) window.gameEngine.handlePlayerMove('local2', 0, 0);
+        if (e.code === 'ArrowRight' && p2.inputX === 1) window.gameEngine.handlePlayerMove('local2', 0, 0);
     }
 });
