@@ -510,13 +510,6 @@ class GameEngine {
 
         // Restore context from screen shake
         this.ctx.restore();
-
-        // Draw Anxiety Flashing Border
-        if (this.anxietyLevel > 0) {
-            const pulse = (Math.sin(Date.now() / 80) * 0.5 + 0.5) * this.anxietyLevel;
-            this.ctx.fillStyle = `rgba(220, 38, 38, ${pulse * 0.3})`;
-            this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-        }
     }
 
     drawCharacter(p, isIt) {
@@ -744,7 +737,7 @@ class SoundEngine {
         osc.frequency.setValueAtTime(60, now);
         osc.frequency.exponentialRampToValueAtTime(20, now + 0.15);
         
-        gain.gain.setValueAtTime(0.5 * intensity, now);
+        gain.gain.setValueAtTime(1.2 * intensity, now); // Increased volume
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
         
         osc.start(now);
