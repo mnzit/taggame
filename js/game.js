@@ -107,8 +107,20 @@ class GameEngine {
         this.weatherDuration = 0;
         this.weatherParticles = [];
         
+        // Game Settings (Read from Lobby)
+        this.settings = {
+            timeMode: document.getElementById('setting-time') ? document.getElementById('setting-time').value : 'cycle',
+            visionControl: document.getElementById('setting-vision') ? document.getElementById('setting-vision').checked : true
+        };
+        
         // Day/Night Cycle
-        this.timeOfDay = 0.5 * Math.PI; // Starts at twilight (sunset)
+        if (this.settings.timeMode === 'day') {
+            this.timeOfDay = 0; // Noon
+        } else if (this.settings.timeMode === 'night') {
+            this.timeOfDay = Math.PI; // Midnight
+        } else {
+            this.timeOfDay = 0.5 * Math.PI; // Starts at twilight (sunset)
+        }
         
         this.resize();
         window.addEventListener('resize', () => this.resize());
@@ -257,7 +269,9 @@ class GameEngine {
 
     updatePhysics(dt) {
         // Update Time of Day
-        this.timeOfDay += dt * 0.05; // 1 cycle roughly every 125 seconds
+        if (this.settings.timeMode === 'cycle') {
+            this.timeOfDay += dt * 0.05; // 1 cycle roughly every 125 seconds
+        }
 
         // Weather cycle
         if (this.weatherDuration > 0) {
@@ -742,7 +756,7 @@ class GameEngine {
         }
 
         // Draw Darkness / Vision Control Overlay
-        if (darknessLevel > 0) {
+        if (darknessLevel > 0 && this.settings.visionControl) {
             if (!this.darkCanvas) {
                 this.darkCanvas = document.createElement('canvas');
                 this.darkCtx = this.darkCanvas.getContext('2d');
