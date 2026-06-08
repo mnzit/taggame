@@ -227,6 +227,22 @@ class GameEngine {
     start() {
         if (this.isRunning) return;
         this.isRunning = true;
+        
+        // Re-read settings right before starting
+        if (document.getElementById('setting-time')) {
+            this.settings.timeMode = document.getElementById('setting-time').value;
+            this.settings.visionControl = document.getElementById('setting-vision').checked;
+        }
+        
+        // Reset Day/Night Cycle based on final setting
+        if (this.settings.timeMode === 'day') {
+            this.timeOfDay = 0; // Noon
+        } else if (this.settings.timeMode === 'night') {
+            this.timeOfDay = Math.PI; // Midnight
+        } else {
+            this.timeOfDay = 0.5 * Math.PI; // Starts at twilight (sunset)
+        }
+        
         this.loadMap();
         
         // Reset player positions
