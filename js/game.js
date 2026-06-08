@@ -3,9 +3,11 @@ const GAME_MAPS = {
     '5_floors': {
         name: '5 Floors',
         build: (w, h) => {
-            const p = [];
+            const platforms = [];
+            const decorations = [];
+            
             // Ground floor
-            p.push({ x: 0, y: h - 40, width: w, height: 40 });
+            platforms.push({ x: 0, y: h - 40, width: w, height: 40, color: '#1e293b' });
             
             // 3 elevated floors (removed the very top one)
             const gap = (h - 150) / 4; // keep the gap distance the same, just less floors
@@ -21,10 +23,31 @@ const GAME_MAPS = {
                     let pw = w * (0.15 + Math.random() * 0.1); 
                     // Random x position within this segment's allocated zone
                     let px = (j * availableWidth) + Math.random() * (availableWidth - pw);
-                    p.push({ x: px, y: y, width: pw, height: 20 });
+                    platforms.push({ x: px, y: y, width: pw, height: 20, color: '#334155' });
+                    
+                    // Add random decorations on top of the platform
+                    if (Math.random() > 0.2) {
+                        const type = Math.random() > 0.6 ? 'tree' : (Math.random() > 0.4 ? 'bush' : 'house');
+                        const dw = type === 'house' ? 50 : (type === 'tree' ? 30 : 25);
+                        const dh = type === 'house' ? 40 : (type === 'tree' ? 50 : 15);
+                        if (pw > dw + 10) {
+                            const dx = px + 5 + Math.random() * (pw - dw - 10);
+                            decorations.push({ x: dx, y: y - dh, width: dw, height: dh, type: type });
+                        }
+                    }
                 }
             }
-            return p;
+            
+            // Ground decorations
+            for(let i=0; i<6; i++) {
+                const type = Math.random() > 0.5 ? 'tree' : (Math.random() > 0.5 ? 'bush' : 'house');
+                const dw = type === 'house' ? 60 : (type === 'tree' ? 40 : 30);
+                const dh = type === 'house' ? 50 : (type === 'tree' ? 60 : 20);
+                const dx = Math.random() * (w - dw);
+                decorations.push({ x: dx, y: h - 40 - dh, width: dw, height: dh, type: type });
+            }
+            
+            return { platforms, decorations };
         }
     },
     'random': {
@@ -138,9 +161,10 @@ class GameEngine {
     }
 
     loadMap() {
-        if (GAME_MAPS[this.currentMapId]) {
-            this.platforms = GAME_MAPS[this.currentMapId].build(this.canvas.width, this.canvas.height);
-        }
+        this.currentMap = '5_floors';
+        const mapData = GAME_MAPS[this.currentMap].build(this.canvas.width, this.canvas.height);
+        this.platforms = mapData.platforms || mapData;
+        this.decorations = mapData.decorations || [];
     }
 
     start() {
@@ -278,18 +302,78 @@ class GameEngine {
     }
 
     draw() {
-        // Clear background
-        this.ctx.fillStyle = '#0f172a';
+        // Draw sky gradient
+        const grad = this.ctx.createLinearGradient(0, 0, 0, this.canvas.height);
+        grad.addColorStop(0, '#020617'); // Dark night sky
+        grad.addColorStop(1, '#1e1b4b'); // Deep purple-blue horizon
+        this.ctx.fillStyle = grad;
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         
+        // Draw distant mountains (parallax background effect)
+        this.ctx.fillStyle = '#0f172a';
+        this.ctx.beginPath();
+        this.ctx.moveTo(0, this.canvas.height - 40);
+        this.ctx.lineTo(this.canvas.width * 0.15, this.canvas.height - 300);
+        this.ctx.lineTo(this.canvas.width * 0.4, this.canvas.height - 150);
+        this.ctx.lineTo(this.canvas.width * 0.7, this.canvas.height - 350);
+        this.ctx.lineTo(this.canvas.width, this.canvas.height - 100);
+        this.ctx.lineTo(this.canvas.width, this.canvas.height);
+        this.ctx.fill();
+
+        // Draw decorations
+        if (this.decorations) {
+            this.decorations.forEach(d => {
+                if (d.type === 'tree') {
+                    // trunk
+                    this.ctx.fillStyle = '#451a03'; // dark brown
+                    this.ctx.fillRect(d.x + d.width/2 - 4, d.y + d.height - 20, 8, 20);
+                    // leaves
+                    this.ctx.fillStyle = '#064e3b'; // dark green
+                    this.ctx.beginPath();
+                    this.ctx.arc(d.x + d.width/2, d.y + d.height - 30, d.width/2, 0, Math.PI * 2);
+                    this.ctx.fill();
+                    this.ctx.fillStyle = '#0f766e'; // teal highlight
+                    this.ctx.beginPath();
+                    this.ctx.arc(d.x + d.width/2 - 5, d.y + d.height - 35, d.width/3, 0, Math.PI * 2);
+                    this.ctx.fill();
+                } else if (d.type === 'bush') {
+                    this.ctx.fillStyle = '#065f46'; // forest green
+                    this.ctx.beginPath();
+                    this.ctx.arc(d.x + d.width/2, d.y + d.height/2, d.height/2 + 2, 0, Math.PI * 2);
+                    this.ctx.arc(d.x + 8, d.y + d.height - 5, d.height/2, 0, Math.PI * 2);
+                    this.ctx.arc(d.x + d.width - 8, d.y + d.height - 5, d.height/2, 0, Math.PI * 2);
+                    this.ctx.fill();
+                } else if (d.type === 'house') {
+                    // base
+                    this.ctx.fillStyle = '#94a3b8'; // slate
+                    this.ctx.fillRect(d.x, d.y + 15, d.width, d.height - 15);
+                    // roof
+                    this.ctx.fillStyle = '#7f1d1d'; // dark red
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(d.x - 4, d.y + 15);
+                    this.ctx.lineTo(d.x + d.width/2, d.y);
+                    this.ctx.lineTo(d.x + d.width + 4, d.y + 15);
+                    this.ctx.fill();
+                    // door
+                    this.ctx.fillStyle = '#451a03';
+                    this.ctx.fillRect(d.x + d.width/2 - 6, d.y + d.height - 12, 12, 12);
+                    // windows
+                    this.ctx.fillStyle = '#fef08a'; // yellow light
+                    this.ctx.fillRect(d.x + 8, d.y + 22, 8, 8);
+                    this.ctx.fillRect(d.x + d.width - 16, d.y + 22, 8, 8);
+                }
+            });
+        }
+
         // Draw platforms
-        this.ctx.fillStyle = '#334155';
-        this.platforms.forEach(plat => {
-            this.ctx.fillRect(plat.x, plat.y, plat.width, plat.height);
-            // Highlight top edge
-            this.ctx.fillStyle = '#475569';
-            this.ctx.fillRect(plat.x, plat.y, plat.width, 4);
-            this.ctx.fillStyle = '#334155';
+        this.platforms.forEach(p => {
+            // Main platform block
+            this.ctx.fillStyle = p.color || '#334155';
+            this.ctx.fillRect(p.x, p.y, p.width, p.height);
+            
+            // Grass top
+            this.ctx.fillStyle = '#22c55e'; // vivid green
+            this.ctx.fillRect(p.x, p.y, p.width, 4);
         });
         
         // Draw players
