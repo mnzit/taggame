@@ -363,20 +363,30 @@ class GameEngine {
             this.platforms.forEach(plat => {
                 if (plat.isCollapsible && plat.state === 'crumbled') return; // Ignore crumbled
                 
-                // Simple AABB, only collide if falling down
-                if (p.vy >= 0 && 
-                    p.y + p.height - (p.vy * dt) <= plat.y + 5 && // was above platform last frame
-                    p.x + p.width > plat.x && 
-                    p.x < plat.x + plat.width && 
-                    p.y + p.height >= plat.y) {
+                // Check horizontal overlap first
+                if (p.x + p.width > plat.x && p.x < plat.x + plat.width) {
                     
-                    p.y = plat.y - p.height;
-                    p.vy = 0;
-                    p.grounded = true;
-                    
-                    if (plat.isCollapsible && plat.state === 'normal') {
-                        plat.state = 'flashing';
-                        plat.crumbleTimer = 2.0;
+                    // Colliding from above (landing on platform)
+                    if (p.vy >= 0 && 
+                        p.y + p.height > plat.y && 
+                        p.y + p.height - (p.vy * dt) <= plat.y + 15) {
+                        
+                        p.y = plat.y - p.height;
+                        p.vy = 0;
+                        p.grounded = true;
+                        
+                        if (plat.isCollapsible && plat.state === 'normal') {
+                            plat.state = 'flashing';
+                            plat.crumbleTimer = 2.0;
+                        }
+                    }
+                    // Colliding from below (bonking head)
+                    else if (p.vy < 0 && 
+                             p.y < plat.y + plat.height && 
+                             p.y - (p.vy * dt) >= plat.y + plat.height - 15) {
+                             
+                        p.y = plat.y + plat.height;
+                        p.vy = 0; // stop upward momentum
                     }
                 }
             });
