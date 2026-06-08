@@ -295,7 +295,10 @@ class GameEngine {
             this.checkTagging();
             
             // Timer Logic
+            const previousSecond = Math.ceil(this.roundTimer);
             this.roundTimer -= dt;
+            const currentSecond = Math.ceil(this.roundTimer);
+            
             const timerEl = document.getElementById('game-timer');
             if (timerEl) {
                 timerEl.innerText = Math.max(0, this.roundTimer).toFixed(1);
@@ -308,9 +311,14 @@ class GameEngine {
                 }
             }
             
+            if (currentSecond < previousSecond && this.roundTimer <= 5 && this.roundTimer > 0) {
+                if (window.soundEngine) window.soundEngine.playTick();
+            }
+            
             if (this.roundTimer <= 0) {
                 this.gameState = 'gameover';
                 this.isRunning = false;
+                if (window.soundEngine) window.soundEngine.playTimesUp();
                 document.getElementById('game-over-screen').classList.remove('hidden');
                 const itPlayer = this.players[this.itPlayerId];
                 const name = itPlayer ? itPlayer.name : 'IT';
@@ -1285,6 +1293,54 @@ class SoundEngine {
         
         osc.start();
         osc.stop(this.ctx.currentTime + 0.3);
+    }
+
+    playTick() {
+        if (this.ctx.state === 'suspended') this.ctx.resume();
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(800, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(100, this.ctx.currentTime + 0.05);
+        
+        gain.gain.setValueAtTime(0.5, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.05);
+        
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.05);
+    }
+
+    playTimesUp() {
+        if (this.ctx.state === 'suspended') this.ctx.resume();
+        
+        // Wah wah losing sound (descending minor notes)
+        const notes = [300, 280, 250, 200];
+        const times = [0, 0.4, 0.8, 1.2];
+        
+        notes.forEach((freq, i) => {
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            
+            osc.type = 'sawtooth';
+            
+            const startTime = this.ctx.currentTime + times[i];
+            const duration = i === notes.length - 1 ? 1.0 : 0.3;
+            
+            osc.frequency.setValueAtTime(freq, startTime);
+            osc.frequency.exponentialRampToValueAtTime(freq * 0.9, startTime + duration);
+            
+            gain.gain.setValueAtTime(0, startTime);
+            gain.gain.linearRampToValueAtTime(0.3, startTime + 0.1);
+            gain.gain.linearRampToValueAtTime(0, startTime + duration);
+            
+            osc.start(startTime);
+            osc.stop(startTime + duration);
+        });
     }
 }
 
