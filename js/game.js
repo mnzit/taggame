@@ -206,13 +206,24 @@ class GameEngine {
             // Move X
             p.x += p.vx * dt;
             
-            // Screen wrap X
-            if (p.x > this.canvas.width) p.x = -p.width;
-            if (p.x + p.width < 0) p.x = this.canvas.width;
+            // Screen walls X (Left and Right)
+            if (p.x < 0) {
+                p.x = 0;
+                p.vx = 0;
+            } else if (p.x + p.width > this.canvas.width) {
+                p.x = this.canvas.width - p.width;
+                p.vx = 0;
+            }
             
             // Move Y
             p.y += p.vy * dt;
             p.grounded = false;
+            
+            // Screen ceiling (Top)
+            if (p.y < 0) {
+                p.y = 0;
+                if (p.vy < 0) p.vy = 0; // stop upward momentum
+            }
             
             // Platform collisions
             this.platforms.forEach(plat => {
