@@ -864,18 +864,16 @@ class GameEngine {
             
             this.fogCtx.globalCompositeOperation = 'destination-out';
             Object.values(this.players).forEach(p => {
-                if (p.id !== this.itPlayerId) {
-                    const gradient = this.fogCtx.createRadialGradient(
-                        p.x + p.width/2, p.y + p.height/2, 10,
-                        p.x + p.width/2, p.y + p.height/2, 250 * this.scale
-                    );
-                    gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
-                    gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
-                    this.fogCtx.fillStyle = gradient;
-                    this.fogCtx.beginPath();
-                    this.fogCtx.arc(p.x + p.width/2, p.y + p.height/2, 250 * this.scale, 0, Math.PI*2);
-                    this.fogCtx.fill();
-                }
+                const gradient = this.fogCtx.createRadialGradient(
+                    p.x + p.width/2, p.y + p.height/2, 10,
+                    p.x + p.width/2, p.y + p.height/2, 250 * this.scale
+                );
+                gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
+                gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+                this.fogCtx.fillStyle = gradient;
+                this.fogCtx.beginPath();
+                this.fogCtx.arc(p.x + p.width/2, p.y + p.height/2, 250 * this.scale, 0, Math.PI*2);
+                this.fogCtx.fill();
             });
             this.fogCtx.globalCompositeOperation = 'source-over';
             
