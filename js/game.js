@@ -113,7 +113,7 @@ class GameEngine {
         this.gameState = 'lobby'; // lobby, playing, gameover
         this.roundTimer = 30.0;
         
-        this.scale = Math.min(window.innerWidth / 800, window.innerHeight / 600);
+
         this.powerupSpawnTimer = 5.0;
         this.slowMoTimer = 0;
         this.slowMoPlayerId = null;
@@ -140,6 +140,26 @@ class GameEngine {
     resize() {
         this.canvas.width = window.innerWidth;
         this.canvas.height = window.innerHeight;
+        
+        const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+        
+        let newScale = Math.min(window.innerWidth / 800, window.innerHeight / 600);
+        
+        // Adjust scale based on host device (PC = big, Mobile = small)
+        if (!isTouchDevice) {
+            newScale *= 1.5;
+        } else {
+            newScale *= 0.8;
+        }
+        
+        this.scale = newScale;
+        
+        // Update existing players if any
+        Object.values(this.players).forEach(p => {
+            p.width = 40 * this.scale;
+            p.height = 40 * this.scale;
+        });
+        
         // Re-generate platforms to fit screen whenever resized or rotated
         this.loadMap();
     }
