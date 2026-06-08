@@ -88,3 +88,23 @@ function showControllerView() {
         if (['ArrowLeft', 'ArrowRight', 'KeyA', 'KeyD'].includes(e.code)) cvSend({ a: 'move', x: 0, y: 0 });
     });
 }
+
+window.forceFullscreen = async function() {
+    try {
+        const el = document.documentElement;
+        if (el.requestFullscreen) {
+            await el.requestFullscreen();
+        } else if (el.webkitRequestFullscreen) {
+            await el.webkitRequestFullscreen();
+        } else if (el.msRequestFullscreen) {
+            await el.msRequestFullscreen();
+        }
+        
+        if (screen.orientation && screen.orientation.lock) {
+            await screen.orientation.lock('landscape');
+        }
+    } catch (err) {
+        console.log('Fullscreen/Orientation lock failed:', err);
+        alert('Could not lock orientation. Please rotate your device physically.');
+    }
+};
