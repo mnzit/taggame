@@ -62,12 +62,12 @@ function updateHostLobby() {
     }
 }
 
-window.addRemoteSlot = function() {
+function addRemoteSlot() {
     if (maxPlayers < 10) {
         maxPlayers++;
         updateHostLobby();
     }
-};
+}
 
 function markSlotConnected(slot, ok) { 
     if (!peers[slot]) return;
