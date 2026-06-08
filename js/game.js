@@ -105,11 +105,13 @@ class GameEngine {
         this.currentWeather = 'none'; // 'none', 'wind_left', 'wind_right', 'fog'
         this.weatherTimer = 10.0;
         this.weatherDuration = 0;
-        this.weatherParticles = [];
+        this.weatherDuration = 0;
         this.windSoundTimer = 0;
         
-        // Power-ups
-        this.powerups = [];
+        this.gameState = 'lobby'; // lobby, playing, gameover
+        this.roundTimer = 30.0;
+        
+        this.scale = Math.min(window.innerWidth / 800, window.innerHeight / 600);
         this.powerupSpawnTimer = 5.0;
         this.slowMoTimer = 0;
         this.slowMoPlayerId = null;
@@ -234,6 +236,9 @@ class GameEngine {
     start() {
         if (this.isRunning) return;
         this.isRunning = true;
+        this.gameState = 'playing';
+        this.roundTimer = 30.0;
+        document.getElementById('game-over-screen').classList.add('hidden');
         
         // Re-read settings right before starting
         if (document.getElementById('setting-time')) {
@@ -283,8 +288,36 @@ class GameEngine {
             this.tagCooldown -= dt * 1000;
         }
 
-        this.updatePhysics(dt);
-        this.checkTagging();
+        if (this.gameState === 'playing') {
+            this.updatePhysics(dt);
+            this.checkTagging();
+            
+            // Timer Logic
+            if (Object.keys(this.players).length > 1) {
+                this.roundTimer -= dt;
+                const timerEl = document.getElementById('game-timer');
+                if (timerEl) {
+                    timerEl.innerText = Math.max(0, this.roundTimer).toFixed(1);
+                    if (this.roundTimer <= 5) {
+                        timerEl.classList.remove('text-white');
+                        timerEl.classList.add('text-red-500');
+                    } else {
+                        timerEl.classList.remove('text-red-500');
+                        timerEl.classList.add('text-white');
+                    }
+                }
+                
+                if (this.roundTimer <= 0) {
+                    this.gameState = 'gameover';
+                    this.isRunning = false;
+                    document.getElementById('game-over-screen').classList.remove('hidden');
+                    const itPlayer = this.players[this.itPlayerId];
+                    const name = itPlayer ? itPlayer.name : 'IT';
+                    document.getElementById('game-over-text').innerText = `${name} ran out of time!`;
+                }
+            }
+        }
+        
         this.draw();
         
         requestAnimationFrame((t) => this.loop(t));
@@ -590,6 +623,7 @@ class GameEngine {
                         
                         this.itPlayerId = tagged.id;
                         this.tagCooldown = 2000; // 2 seconds before next tag possible
+                        this.roundTimer = 30.0; // Reset timer!
                         
                         // Freeze the new IT player for 1.5 seconds so the old IT can run
                         tagged.stunTimer = 1500;
@@ -762,6 +796,12 @@ class GameEngine {
             const isIt = p.id === this.itPlayerId;
             this.drawCharacter(p, isIt);
             
+            // Draw player name
+            this.ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+            this.ctx.font = '600 10px "Inter"';
+            this.ctx.textAlign = 'center';
+            this.ctx.fillText(p.name, p.x + p.width/2, p.y - (isIt ? 30 : 12));
+            
             // Draw 'IT' tag text
             if (isIt) {
                 this.ctx.fillStyle = '#ef4444';
@@ -769,8 +809,9 @@ class GameEngine {
                 let text = 'IT!';
                 if (this.tagCooldown > 0) text = 'COOLDOWN';
                 if (p.stunTimer > 0) text = 'FROZEN!';
-                this.ctx.fillText(text, p.x + p.width/2 - 10, p.y - 12);
+                this.ctx.fillText(text, p.x + p.width/2, p.y - 12);
             }
+            this.ctx.textAlign = 'left'; // reset
         });
 
         // Draw Power-ups
@@ -1116,6 +1157,11 @@ class GameEngine {
         this.ctx.globalAlpha = 1.0;
         this.ctx.restore();
     }
+
+    restart() {
+        this.isRunning = false;
+        this.start();
+    }
 }
 
 // Procedural Sound Engine
@@ -1250,8 +1296,11 @@ window.joinLocal = function() {
     if (!window.gameEngine) return;
     
     let added = false;
+    const nameInput = document.getElementById('local-name-input');
+    const customName = nameInput && nameInput.value.trim() !== '' ? nameInput.value.trim() : null;
+    
     if (!window.gameEngine.players['local1']) {
-        window.gameEngine.addPlayer('local1', isTouchDevice ? 'P1 (Touch)' : 'P1 (WASD)');
+        window.gameEngine.addPlayer('local1', customName || (isTouchDevice ? 'P1 (Touch)' : 'P1 (WASD)'));
         added = true;
         
         if (isTouchDevice) {
@@ -1259,7 +1308,7 @@ window.joinLocal = function() {
             window.initLocalJoystick();
         }
     } else if (!isTouchDevice && !window.gameEngine.players['local2']) {
-        window.gameEngine.addPlayer('local2', 'P2 (Arrows)');
+        window.gameEngine.addPlayer('local2', customName || 'P2 (Arrows)');
         added = true;
     }
     

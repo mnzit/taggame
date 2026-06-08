@@ -33,7 +33,10 @@
                 <div class="space-y-4">
                     <p class="text-slate-300">Players connected: <span id="player-count">0</span> / 4</p>
                     <div id="pair-list" class="flex flex-col gap-2"></div>
-                    <button onclick="joinLocal()" id="btn-join-local" class="w-full py-3 rounded-xl font-black text-white bg-blue-500 hover:bg-blue-400 uppercase tracking-wider bubbly-font mt-4">ADD LOCAL PLAYER (0/2)</button>
+                    <div class="mt-4 flex gap-2">
+                        <input id="local-name-input" type="text" maxlength="14" placeholder="Local Player Name" class="flex-1 bg-slate-900 border border-slate-600 rounded-xl px-3 text-slate-200 outline-none text-sm text-center">
+                        <button onclick="joinLocal()" id="btn-join-local" class="px-4 py-3 rounded-xl font-black text-white bg-blue-500 hover:bg-blue-400 uppercase tracking-wider bubbly-font text-sm whitespace-nowrap">ADD LOCAL (0/2)</button>
+                    </div>
                     
                     <div class="mt-4 p-4 bg-slate-800/80 rounded-xl border border-slate-700 space-y-3 text-left">
                         <h3 class="font-bold text-slate-200">Game Settings</h3>
@@ -144,6 +147,18 @@
         <div class="absolute top-4 left-4 z-40 bg-black/40 backdrop-blur-md px-4 py-2 rounded-xl border border-white/10 flex items-center gap-3 pointer-events-auto">
             <h1 class="text-xl font-black bubbly-font text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-teal-400">TAG</h1>
             <button onclick="forceFullscreen()" class="text-xs font-bold px-3 py-1 bg-indigo-500/20 text-indigo-300 rounded border border-indigo-500/50 hover:bg-indigo-500/40 pointer-events-auto">FS</button>
+        </div>
+        
+        <!-- Timer -->
+        <div class="absolute top-4 left-1/2 -translate-x-1/2 z-40 bg-black/40 backdrop-blur-md px-6 py-2 rounded-xl border border-white/10 pointer-events-none">
+            <h2 id="game-timer" class="text-3xl font-black bubbly-font text-white drop-shadow-lg">30.0</h2>
+        </div>
+        
+        <!-- GAME OVER OVERLAY -->
+        <div id="game-over-screen" class="hidden absolute inset-0 z-50 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center pointer-events-auto text-center p-6">
+            <h1 class="text-6xl font-black bubbly-font text-red-500 mb-4 drop-shadow-lg">TIME'S UP!</h1>
+            <p id="game-over-text" class="text-3xl text-white font-bold mb-8">Someone lost!</p>
+            <button onclick="window.gameEngine.restart()" class="px-8 py-4 bg-gradient-to-r from-emerald-400 to-teal-500 rounded-2xl font-black bubbly-font text-2xl text-white shadow-lg active:scale-95 transition-transform border-4 border-emerald-300">PLAY AGAIN</button>
         </div>
     </div>
 
