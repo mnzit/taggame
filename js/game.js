@@ -68,6 +68,8 @@ const GAME_MAPS = {
 };
 
 
+const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+
 class GameEngine {
     constructor() {
         this.canvas = document.getElementById('game-canvas');
@@ -644,8 +646,6 @@ class SoundEngine {
 // Global initialization
 window.soundEngine = new SoundEngine();
 window.gameEngine = new GameEngine();
-
-const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 
 window.joinLocal = function() {
     if (!window.gameEngine) return;
