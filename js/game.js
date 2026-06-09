@@ -143,11 +143,23 @@ class GameEngine {
         
         const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
         
+        // Hide local play if Host is PC
+        const localContainer = document.getElementById('local-play-container');
+        if (localContainer) {
+            if (!isTouchDevice) {
+                localContainer.classList.add('hidden');
+                localContainer.classList.remove('flex');
+            } else {
+                localContainer.classList.remove('hidden');
+                localContainer.classList.add('flex');
+            }
+        }
+        
         let newScale = Math.min(window.innerWidth / 800, window.innerHeight / 600);
         
         // Adjust scale based on host device (PC = big, Mobile = small)
         if (!isTouchDevice) {
-            newScale *= 1.5;
+            newScale *= 1.1; // Toned down from 1.5 to 1.1 because it was too large
         } else {
             newScale *= 0.8;
         }
