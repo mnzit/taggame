@@ -1428,6 +1428,12 @@ class SoundEngine {
 window.soundEngine = new SoundEngine();
 window.gameEngine = new GameEngine();
 
+// Reflect the per-device local-player cap in the lobby button (1 on touch, 2 on desktop)
+(function () {
+    const btn = document.getElementById('btn-join-local');
+    if (btn) btn.innerText = `ADD LOCAL (0/${isTouchDevice ? 1 : 2})`;
+})();
+
 window.joinLocal = function() {
     if (!window.gameEngine) return;
     
