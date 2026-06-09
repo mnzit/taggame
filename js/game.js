@@ -56,7 +56,10 @@ const GAME_MAPS = {
             const wallW = w * 0.025;
             [0.30, 0.55, 0.78].forEach(fx => platforms.push({ x: w * fx, y: h * 0.12, width: wallW, height: h * 0.66, color: STRUCT_COLOR, noCollapse: true }));
             [[0.05, 0.30], [0.33, 0.45], [0.58, 0.32], [0.80, 0.50], [0.16, 0.62], [0.62, 0.66], [0.40, 0.74]]
-                .forEach(([fx, fy]) => platforms.push({ x: w * fx, y: h * fy, width: w * 0.16, height: 16, color: PLAT_COLOR }));
+                .forEach(([fx, fy], i) => platforms.push({
+                    x: w * fx, y: h * fy, width: w * 0.16, height: 16, color: PLAT_COLOR, noCollapse: true,
+                    move: { axis: 'y', amp: h * 0.12, speed: 0.9 + i * 0.12, phase: i * 0.8 }
+                }));
             return { platforms, decorations };
         }
     },
@@ -69,8 +72,8 @@ const GAME_MAPS = {
             platforms.push({ x: 0, y: cliffTop, width: w * 0.34, height: cliffH, color: GROUND_COLOR, noCollapse: true });
             platforms.push({ x: w * 0.66, y: cliffTop, width: w * 0.34, height: cliffH, color: GROUND_COLOR, noCollapse: true });
             platforms.push({ x: w * 0.40, y: cliffTop + h * 0.06, width: w * 0.20, height: 16, color: '#7c4a2d' }); // bridge
-            platforms.push({ x: w * 0.30, y: cliffTop - h * 0.18, width: w * 0.12, height: 16, color: PLAT_COLOR });
-            platforms.push({ x: w * 0.58, y: cliffTop - h * 0.18, width: w * 0.12, height: 16, color: PLAT_COLOR });
+            platforms.push({ x: w * 0.30, y: cliffTop - h * 0.18, width: w * 0.12, height: 16, color: PLAT_COLOR, noCollapse: true, move: { axis: 'x', amp: w * 0.08, speed: 0.8, phase: 0 } });
+            platforms.push({ x: w * 0.58, y: cliffTop - h * 0.18, width: w * 0.12, height: 16, color: PLAT_COLOR, noCollapse: true, move: { axis: 'x', amp: w * 0.08, speed: 0.8, phase: Math.PI } });
             decorations.push(deco(w * 0.08, cliffTop, 'house'));
             decorations.push(deco(w * 0.88, cliffTop, 'house'));
             decorations.push(deco(w * 0.22, cliffTop, 'tree'));
@@ -89,7 +92,7 @@ const GAME_MAPS = {
                     const pw = w * (0.12 - r * 0.015);
                     platforms.push({ x: cx - pw / 2, y: h * 0.30 + r * h * 0.14, width: pw, height: 14, color: PLAT_COLOR });
                 }
-                platforms.push({ x: cx - w * 0.05, y: h * 0.20, width: w * 0.10, height: 14, color: STRUCT_COLOR });
+                platforms.push({ x: cx - w * 0.05, y: h * 0.20, width: w * 0.10, height: 14, color: STRUCT_COLOR, noCollapse: true, move: { axis: 'y', amp: h * 0.05, speed: 2.2, phase: i } });
             }
             [0.06, 0.50, 0.94].forEach(fx => decorations.push(deco(w * fx, h - 40, 'tree')));
             return { platforms, decorations };
@@ -216,6 +219,7 @@ class GameEngine {
         this.tagCooldown = 0; // ms
         
         // Effects
+        this.platformTime = 0; // drives moving-platform oscillation
         this.particles = [];
         this.footprints = [];
         this.shakeDuration = 0;
@@ -572,9 +576,31 @@ class GameEngine {
             this.slowMoTimer -= dt;
         }
 
+        // Moving platforms: oscillate around their original position and record the
+        // per-frame delta (dx/dy) so players standing on them can be carried along.
+        this.platformTime += dt;
+        this.platforms.forEach(plat => {
+            if (!plat.move) return;
+            if (plat.baseX === undefined) { plat.baseX = plat.x; plat.baseY = plat.y; }
+            const off = Math.sin(this.platformTime * plat.move.speed + (plat.move.phase || 0)) * plat.move.amp;
+            const nx = plat.move.axis === 'x' ? plat.baseX + off : plat.baseX;
+            const ny = plat.move.axis === 'y' ? plat.baseY + off : plat.baseY;
+            plat.dx = nx - plat.x;
+            plat.dy = ny - plat.y;
+            plat.x = nx;
+            plat.y = ny;
+        });
+
         const pList = Object.values(this.players);
         
         pList.forEach(p => {
+            // Ride a moving platform: carry the player by the platform's delta this frame
+            // (uses last frame's grounded state / standing platform, before they're reset below)
+            if (p.grounded && p.standingPlat && p.standingPlat.move) {
+                p.x += p.standingPlat.dx || 0;
+                p.y += p.standingPlat.dy || 0;
+            }
+
             // Apply Slow Mo dt
             let localDt = dt;
             if (this.slowMoTimer > 0 && p.id !== this.slowMoPlayerId) {
@@ -643,6 +669,7 @@ class GameEngine {
             // Move Y
             p.y += p.vy * localDt;
             p.grounded = false;
+            p.standingPlat = null;
             
             // Screen ceiling (Top)
             if (p.y < 0) {
@@ -665,7 +692,8 @@ class GameEngine {
                         p.y = plat.y - p.height;
                         p.vy = 0;
                         p.grounded = true;
-                        
+                        p.standingPlat = plat;
+
                         if (plat.isCollapsible && plat.state === 'normal') {
                             plat.state = 'flashing';
                             plat.crumbleTimer = 2.0;
