@@ -144,15 +144,8 @@ class GameEngine {
         const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
         
 
-        
-        let newScale = Math.min(window.innerWidth / 800, window.innerHeight / 600);
-        
-        // Adjust scale based on host device (PC = big, Mobile = small)
-        if (!isTouchDevice) {
-            newScale *= 1.1; // Toned down from 1.5 to 1.1 because it was too large
-        } else {
-            newScale *= 0.8;
-        }
+        // Use fixed scales so characters don't become gigantic on large monitors
+        let newScale = isTouchDevice ? 0.8 : 1.2;
         
         this.scale = newScale;
         
