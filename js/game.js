@@ -1,68 +1,182 @@
-// Game Maps Registry - Easily extendible by adding new objects
+// Game Maps Registry - 10 hand-built static layouts.
+// Each build(w, h) returns { platforms, decorations }.
+//   platform: { x, y, width, height, color, noCollapse? }  (noCollapse keeps structural blocks intact)
+//   decoration (visual only): { x, y, width, height, type: 'tree'|'bush'|'house' }
+const GROUND_COLOR = '#1e293b';
+const PLAT_COLOR = '#334155';
+const STRUCT_COLOR = '#475569';
+const ground = (w, h) => ({ x: 0, y: h - 40, width: w, height: 40, color: GROUND_COLOR });
+const deco = (x, y, type) => {
+    const dw = type === 'house' ? 54 : (type === 'tree' ? 32 : 26);
+    const dh = type === 'house' ? 46 : (type === 'tree' ? 52 : 16);
+    return { x: x - dw / 2, y: y - dh, width: dw, height: dh, type };
+};
+
 const GAME_MAPS = {
-    '5_floors': {
-        name: '5 Floors',
+    'classic_cluster': {
+        name: 'The Classic Cluster',
         build: (w, h) => {
-            const platforms = [];
+            const platforms = [ground(w, h)];
             const decorations = [];
-            
-            // Ground floor
-            platforms.push({ x: 0, y: h - 40, width: w, height: 40, color: '#1e293b' });
-            
-            // 3 elevated floors (removed the very top one)
-            const gap = (h - 150) / 4; // keep the gap distance the same, just less floors
-            for(let i = 1; i <= 3; i++) {
-                const y = h - 40 - (i * gap);
-                
-                // Create randomized platform segments for this floor level
-                let numSegments = 2 + Math.floor(Math.random() * 2); // 2 or 3 segments per floor
-                let availableWidth = w / numSegments;
-                
-                for(let j = 0; j < numSegments; j++) {
-                    // Random width between 15% and 25% of screen width
-                    let pw = w * (0.15 + Math.random() * 0.1); 
-                    // Random x position within this segment's allocated zone
-                    let px = (j * availableWidth) + Math.random() * (availableWidth - pw);
-                    platforms.push({ x: px, y: y, width: pw, height: 20, color: '#334155' });
-                    
-                    // Add random decorations on top of the platform
-                    if (Math.random() > 0.2) {
-                        const type = Math.random() > 0.6 ? 'tree' : (Math.random() > 0.4 ? 'bush' : 'house');
-                        const dw = type === 'house' ? 50 : (type === 'tree' ? 30 : 25);
-                        const dh = type === 'house' ? 40 : (type === 'tree' ? 50 : 15);
-                        if (pw > dw + 10) {
-                            const dx = px + 5 + Math.random() * (pw - dw - 10);
-                            decorations.push({ x: dx, y: y - dh, width: dw, height: dh, type: type });
-                        }
-                    }
-                }
-            }
-            
-            // Ground decorations
-            for(let i=0; i<6; i++) {
-                const type = Math.random() > 0.5 ? 'tree' : (Math.random() > 0.5 ? 'bush' : 'house');
-                const dw = type === 'house' ? 60 : (type === 'tree' ? 40 : 30);
-                const dh = type === 'house' ? 50 : (type === 'tree' ? 60 : 20);
-                const dx = Math.random() * (w - dw);
-                decorations.push({ x: dx, y: h - 40 - dh, width: dw, height: dh, type: type });
-            }
-            
+            [[0.05, 0.62, 0.18], [0.28, 0.50, 0.15], [0.46, 0.40, 0.16], [0.66, 0.52, 0.17],
+             [0.80, 0.38, 0.15], [0.12, 0.34, 0.14], [0.38, 0.66, 0.16], [0.60, 0.30, 0.14],
+             [0.20, 0.78, 0.18], [0.72, 0.74, 0.16]
+            ].forEach(([fx, fy, fw]) => platforms.push({ x: w * fx, y: h * fy, width: w * fw, height: 18, color: PLAT_COLOR }));
+            [0.05, 0.45, 0.82].forEach(fx => decorations.push(deco(w * fx + 27, h - 40, 'house')));
+            [[0.18, 'tree'], [0.30, 'bush'], [0.62, 'tree'], [0.70, 'bush'], [0.92, 'tree']]
+                .forEach(([fx, t]) => decorations.push(deco(w * fx, h - 40, t)));
             return { platforms, decorations };
         }
     },
-    'random': {
-        name: 'Random Chaos',
+    'vertical_columns': {
+        name: 'Vertical Columns',
         build: (w, h) => {
-            const p = [];
-            p.push({ x: 0, y: h - 40, width: w, height: 40 });
-            const numPlatforms = Math.floor((w * h) / 100000);
-            for (let i = 0; i < numPlatforms; i++) {
-                const pw = 150 + Math.random() * 200;
-                const px = Math.random() * (w - pw);
-                const py = 150 + Math.random() * (h - 250);
-                p.push({ x: px, y: py, width: pw, height: 20 });
+            const platforms = [ground(w, h)];
+            const decorations = [];
+            const cols = 5, cw = w * 0.07;
+            for (let i = 0; i < cols; i++) {
+                const cx = w * (0.10 + i * 0.19) - cw / 2;
+                const colH = h * (0.30 + (i % 2 ? 0.18 : 0.32));
+                const topY = h - 40 - colH;
+                platforms.push({ x: cx, y: topY, width: cw, height: colH, color: STRUCT_COLOR, noCollapse: true });
+                decorations.push(deco(cx + cw / 2, topY, 'house'));
+                if (i < cols - 1) {
+                    const ly = h - 40 - h * (0.18 + (i % 2 ? 0.12 : 0));
+                    platforms.push({ x: w * (0.10 + i * 0.19) + w * 0.05, y: ly, width: w * 0.10, height: 16, color: PLAT_COLOR });
+                }
             }
-            return p;
+            return { platforms, decorations };
+        }
+    },
+    'moving_machinery': {
+        name: 'Moving Machinery',
+        build: (w, h) => {
+            const platforms = [ground(w, h)];
+            const decorations = [];
+            const wallW = w * 0.025;
+            [0.30, 0.55, 0.78].forEach(fx => platforms.push({ x: w * fx, y: h * 0.12, width: wallW, height: h * 0.66, color: STRUCT_COLOR, noCollapse: true }));
+            [[0.05, 0.30], [0.33, 0.45], [0.58, 0.32], [0.80, 0.50], [0.16, 0.62], [0.62, 0.66], [0.40, 0.74]]
+                .forEach(([fx, fy]) => platforms.push({ x: w * fx, y: h * fy, width: w * 0.16, height: 16, color: PLAT_COLOR }));
+            return { platforms, decorations };
+        }
+    },
+    'canyon_pass': {
+        name: 'The Canyon Pass',
+        build: (w, h) => {
+            const platforms = [];
+            const decorations = [];
+            const cliffH = h * 0.45, cliffTop = h - cliffH;
+            platforms.push({ x: 0, y: cliffTop, width: w * 0.34, height: cliffH, color: GROUND_COLOR, noCollapse: true });
+            platforms.push({ x: w * 0.66, y: cliffTop, width: w * 0.34, height: cliffH, color: GROUND_COLOR, noCollapse: true });
+            platforms.push({ x: w * 0.40, y: cliffTop + h * 0.06, width: w * 0.20, height: 16, color: '#7c4a2d' }); // bridge
+            platforms.push({ x: w * 0.30, y: cliffTop - h * 0.18, width: w * 0.12, height: 16, color: PLAT_COLOR });
+            platforms.push({ x: w * 0.58, y: cliffTop - h * 0.18, width: w * 0.12, height: 16, color: PLAT_COLOR });
+            decorations.push(deco(w * 0.08, cliffTop, 'house'));
+            decorations.push(deco(w * 0.88, cliffTop, 'house'));
+            decorations.push(deco(w * 0.22, cliffTop, 'tree'));
+            decorations.push(deco(w * 0.76, cliffTop, 'bush'));
+            return { platforms, decorations };
+        }
+    },
+    'elastic_peaks': {
+        name: 'Elastic Peaks',
+        build: (w, h) => {
+            const platforms = [ground(w, h)];
+            const decorations = [];
+            for (let i = 0; i < 5; i++) {
+                const cx = w * (0.10 + i * 0.19);
+                for (let r = 0; r < 3; r++) {
+                    const pw = w * (0.12 - r * 0.015);
+                    platforms.push({ x: cx - pw / 2, y: h * 0.30 + r * h * 0.14, width: pw, height: 14, color: PLAT_COLOR });
+                }
+                platforms.push({ x: cx - w * 0.05, y: h * 0.20, width: w * 0.10, height: 14, color: STRUCT_COLOR });
+            }
+            [0.06, 0.50, 0.94].forEach(fx => decorations.push(deco(w * fx, h - 40, 'tree')));
+            return { platforms, decorations };
+        }
+    },
+    'abandoned_village': {
+        name: 'The Abandoned Village',
+        build: (w, h) => {
+            const platforms = [ground(w, h)];
+            const decorations = [];
+            [[0.04, 0.55, 0.14], [0.22, 0.45, 0.12], [0.40, 0.58, 0.13], [0.58, 0.42, 0.12],
+             [0.74, 0.52, 0.14], [0.14, 0.70, 0.13], [0.50, 0.72, 0.14], [0.78, 0.30, 0.13]
+            ].forEach(([fx, fy, fw]) => platforms.push({ x: w * fx, y: h * fy, width: w * fw, height: 16, color: PLAT_COLOR }));
+            decorations.push(deco(w * 0.11, h * 0.55, 'house'));
+            decorations.push(deco(w * 0.46, h * 0.58, 'house'));
+            decorations.push(deco(w * 0.81, h * 0.52, 'house'));
+            decorations.push(deco(w * 0.12, h - 40, 'house'));
+            decorations.push(deco(w * 0.62, h - 40, 'house'));
+            decorations.push(deco(w * 0.32, h - 40, 'bush'));
+            return { platforms, decorations };
+        }
+    },
+    'hanging_gardens': {
+        name: 'Hanging Gardens',
+        build: (w, h) => {
+            const platforms = [ground(w, h)];
+            const decorations = [];
+            [[0.10, 0.22, 0.16], [0.40, 0.18, 0.16], [0.70, 0.24, 0.16], [0.25, 0.40, 0.16],
+             [0.55, 0.44, 0.16], [0.05, 0.58, 0.16], [0.78, 0.56, 0.16], [0.42, 0.62, 0.16]
+            ].forEach(([fx, fy, fw], i) => {
+                platforms.push({ x: w * fx, y: h * fy, width: w * fw, height: 14, color: PLAT_COLOR });
+                decorations.push(deco(w * fx + w * fw / 2, h * fy, i % 2 ? 'bush' : 'tree'));
+            });
+            [0.10, 0.30, 0.55, 0.85].forEach(fx => decorations.push(deco(w * fx, h - 40, 'tree')));
+            return { platforms, decorations };
+        }
+    },
+    'spiral_spire': {
+        name: 'Spiral Spire',
+        build: (w, h) => {
+            const platforms = [ground(w, h)];
+            const decorations = [];
+            const tw = w * 0.06, towerTop = h * 0.12;
+            platforms.push({ x: w * 0.5 - tw / 2, y: towerTop, width: tw, height: (h - 40) - towerTop, color: STRUCT_COLOR, noCollapse: true });
+            const levels = 7;
+            for (let i = 0; i < levels; i++) {
+                const ly = h - 40 - (i + 1) * ((h - 40 - towerTop) / (levels + 1));
+                const pw = w * 0.18;
+                const px = (i % 2 === 0) ? w * 0.5 - tw / 2 - pw : w * 0.5 + tw / 2;
+                platforms.push({ x: px, y: ly, width: pw, height: 14, color: PLAT_COLOR });
+            }
+            decorations.push(deco(w * 0.5, towerTop, 'house'));
+            return { platforms, decorations };
+        }
+    },
+    'labyrinth_gates': {
+        name: 'The Labyrinth of Gates',
+        build: (w, h) => {
+            const platforms = [ground(w, h)];
+            const decorations = [];
+            [0.30, 0.46, 0.62, 0.78].forEach((fy, li) => {
+                const offset = (li % 2) * 0.12;
+                for (let c = 0; c < 3; c++) {
+                    const fx = 0.08 + offset + c * 0.30;
+                    if (fx + 0.20 > 0.99) continue;
+                    platforms.push({ x: w * fx, y: h * fy, width: w * 0.20, height: 16, color: PLAT_COLOR });
+                    if ((c + li) % 2 === 0) decorations.push(deco(w * fx + w * 0.10, h * fy, 'house'));
+                }
+            });
+            return { platforms, decorations };
+        }
+    },
+    'great_drop': {
+        name: 'The Great Drop',
+        build: (w, h) => {
+            const platforms = [];
+            const decorations = [];
+            const pillarW = w * 0.16, pillarH = h * 0.55, top = h - pillarH;
+            platforms.push({ x: 0, y: top, width: pillarW, height: pillarH, color: GROUND_COLOR, noCollapse: true });
+            platforms.push({ x: w - pillarW, y: top, width: pillarW, height: pillarH, color: GROUND_COLOR, noCollapse: true });
+            platforms.push({ x: pillarW, y: top + h * 0.12, width: w * 0.06, height: 14, color: PLAT_COLOR });
+            platforms.push({ x: w - pillarW - w * 0.06, y: top + h * 0.12, width: w * 0.06, height: 14, color: PLAT_COLOR });
+            decorations.push(deco(w * 0.05, top, 'house'));
+            decorations.push(deco(w * 0.12, top, 'tree'));
+            decorations.push(deco(w * 0.95, top, 'house'));
+            decorations.push(deco(w * 0.88, top, 'tree'));
+            return { platforms, decorations };
         }
     }
 };
@@ -80,7 +194,7 @@ class GameEngine {
         this.players = {};
         this.platforms = [];
         this.decorations = [];
-        this.currentMapId = '5_floors';
+        this.currentMapId = 'classic_cluster';
         this.lastTime = 0;
         this.isRunning = false;
         
@@ -243,7 +357,7 @@ class GameEngine {
         
         // Add collapsible platform logic
         this.platforms.forEach((plat, index) => {
-            if (index > 0 && Math.random() < 0.4) {
+            if (index > 0 && !plat.noCollapse && Math.random() < 0.4) {
                 plat.isCollapsible = true;
                 plat.state = 'normal';
                 plat.crumbleTimer = 0;
@@ -278,7 +392,18 @@ class GameEngine {
             this.moveSpeed = this.baseMoveSpeed * this.speedMultiplier;
         }
         this.roundTimer = this.roundDuration;
-        
+
+        // Pick the map chosen in the lobby (or a random one)
+        const mapSel = document.getElementById('setting-map');
+        if (mapSel) {
+            let mid = mapSel.value;
+            if (mid === '__random__') {
+                const keys = Object.keys(GAME_MAPS);
+                mid = keys[Math.floor(Math.random() * keys.length)];
+            }
+            if (GAME_MAPS[mid]) this.currentMapId = mid;
+        }
+
         // Reset Day/Night Cycle based on final setting
         if (this.settings.timeMode === 'day') {
             this.timeOfDay = 0; // Noon
@@ -1432,6 +1557,14 @@ window.gameEngine = new GameEngine();
 (function () {
     const btn = document.getElementById('btn-join-local');
     if (btn) btn.innerText = `ADD LOCAL (0/${isTouchDevice ? 1 : 2})`;
+})();
+
+// Populate the lobby Map dropdown from the registry (+ a Random option)
+(function () {
+    const sel = document.getElementById('setting-map');
+    if (!sel) return;
+    sel.innerHTML = Object.keys(GAME_MAPS).map(k => `<option value="${k}">${GAME_MAPS[k].name}</option>`).join('')
+        + '<option value="__random__">🎲 Random Map</option>';
 })();
 
 window.joinLocal = function() {
