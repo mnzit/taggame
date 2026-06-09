@@ -1545,6 +1545,22 @@ window.startGame = async function() {
     window.gameEngine.start();
 };
 
+window.backToLobby = function () {
+    // Stop the running game and return to the lobby, keeping connected players
+    window.gameEngine.isRunning = false;
+    window.gameEngine.gameState = 'lobby';
+
+    document.getElementById('game-over-screen').classList.add('hidden');
+    document.getElementById('game-screen').classList.add('hidden');
+    document.getElementById('lobby-modal').classList.remove('hidden');
+
+    if (document.fullscreenElement && document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+    }
+
+    if (window.updateHostLobby) window.updateHostLobby();
+};
+
 // Local Keyboard Controls
 window.keys = {};
 

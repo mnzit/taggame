@@ -175,12 +175,15 @@
         <div id="game-over-screen" class="hidden absolute inset-0 z-50 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center pointer-events-auto text-center p-6">
             <h1 class="text-6xl font-black bubbly-font text-red-500 mb-4 drop-shadow-lg">TIME'S UP!</h1>
             <p id="game-over-text" class="text-3xl text-white font-bold mb-8">Someone lost!</p>
-            <button onclick="window.gameEngine.restart()" class="px-8 py-4 bg-gradient-to-r from-emerald-400 to-teal-500 rounded-2xl font-black bubbly-font text-2xl text-white shadow-lg active:scale-95 transition-transform border-4 border-emerald-300">PLAY AGAIN</button>
+            <div class="flex flex-col sm:flex-row gap-4 items-center">
+                <button onclick="window.gameEngine.restart()" class="px-8 py-4 bg-gradient-to-r from-emerald-400 to-teal-500 rounded-2xl font-black bubbly-font text-2xl text-white shadow-lg active:scale-95 transition-transform border-4 border-emerald-300">PLAY AGAIN</button>
+                <button onclick="backToLobby()" class="px-8 py-4 bg-slate-700 hover:bg-slate-600 rounded-2xl font-black bubbly-font text-2xl text-white shadow-lg active:scale-95 transition-transform border-4 border-slate-500">BACK TO HOME</button>
+            </div>
         </div>
     </div>
 
-    <script src="js/net.js?v=7"></script>
-    <script src="js/controller.js?v=7"></script>
-    <script src="js/game.js?v=7"></script>
+    <script src="js/net.js?v=8"></script>
+    <script src="js/controller.js?v=8"></script>
+    <script src="js/game.js?v=8"></script>
 </body>
 </html>
