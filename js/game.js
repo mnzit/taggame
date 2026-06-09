@@ -143,10 +143,10 @@ class GameEngine {
         
         const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
         
-        // Hide local play if Host is PC
+        // Hide local play if Host is Mobile
         const localContainer = document.getElementById('local-play-container');
         if (localContainer) {
-            if (!isTouchDevice) {
+            if (isTouchDevice) { // Hide on mobile, show on PC
                 localContainer.classList.add('hidden');
                 localContainer.classList.remove('flex');
             } else {
