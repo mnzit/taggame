@@ -143,17 +143,7 @@ class GameEngine {
         
         const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
         
-        // Hide local play if Host is Mobile
-        const localContainer = document.getElementById('local-play-container');
-        if (localContainer) {
-            if (isTouchDevice) { // Hide on mobile, show on PC
-                localContainer.classList.add('hidden');
-                localContainer.classList.remove('flex');
-            } else {
-                localContainer.classList.remove('hidden');
-                localContainer.classList.add('flex');
-            }
-        }
+
         
         let newScale = Math.min(window.innerWidth / 800, window.innerHeight / 600);
         
