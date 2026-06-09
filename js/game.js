@@ -68,7 +68,10 @@ const GAME_MAPS = {
 };
 
 
-const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+// Treat as a touch device only when the PRIMARY pointer is coarse (a real
+// touchscreen). Laptops/desktops with a trackpad or mouse report touch support
+// but have a fine pointer, so they must be treated as desktop.
+const isTouchDevice = window.matchMedia('(pointer: coarse)').matches;
 
 class GameEngine {
     constructor() {
@@ -87,8 +90,11 @@ class GameEngine {
         
         // Physics constants
         this.gravity = 2400; // Snappier fall
-        this.moveSpeed = isTouchDevice ? 300 : 500; 
-        this.jumpForce = isTouchDevice ? -600 : -1500; 
+        this.baseMoveSpeed = isTouchDevice ? 300 : 500;
+        // Player speed multiplier (0.5x–2x, set in lobby)
+        this.speedMultiplier = document.getElementById('setting-speed') ? parseFloat(document.getElementById('setting-speed').value) : 1.0;
+        this.moveSpeed = this.baseMoveSpeed * this.speedMultiplier;
+        this.jumpForce = isTouchDevice ? -600 : -1500;
         this.maxFallSpeed = 2000;
         
         // Tag Logic
@@ -117,12 +123,15 @@ class GameEngine {
         this.powerupSpawnTimer = 5.0;
         this.slowMoTimer = 0;
         this.slowMoPlayerId = null;
-        
+
         // Game Settings (Read from Lobby)
         this.settings = {
             timeMode: document.getElementById('setting-time') ? document.getElementById('setting-time').value : 'cycle',
-            visionControl: document.getElementById('setting-vision') ? document.getElementById('setting-vision').checked : true
+            visionControl: document.getElementById('setting-vision') ? document.getElementById('setting-vision').checked : true,
+            roundDuration: document.getElementById('setting-duration') ? parseFloat(document.getElementById('setting-duration').value) : 30.0
         };
+        // Seconds on the clock each round / after every tag (30s–5min, set in lobby)
+        this.roundDuration = this.settings.roundDuration;
         
         // Day/Night Cycle
         if (this.settings.timeMode === 'day') {
@@ -141,11 +150,11 @@ class GameEngine {
         this.canvas.width = window.innerWidth;
         this.canvas.height = window.innerHeight;
         
-        const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
-        
+        const isTouchDevice = window.matchMedia('(pointer: coarse)').matches;
+
 
         // Use fixed scales so characters don't become gigantic on large monitors
-        let newScale = isTouchDevice ? 0.8 : 1.2;
+        let newScale = isTouchDevice ? 0.8 : 1.8;
         
         this.scale = newScale;
         
@@ -254,14 +263,21 @@ class GameEngine {
         if (this.isRunning) return;
         this.isRunning = true;
         this.gameState = 'playing';
-        this.roundTimer = 30.0;
         document.getElementById('game-over-screen').classList.add('hidden');
-        
+
         // Re-read settings right before starting
         if (document.getElementById('setting-time')) {
             this.settings.timeMode = document.getElementById('setting-time').value;
             this.settings.visionControl = document.getElementById('setting-vision').checked;
         }
+        if (document.getElementById('setting-duration')) {
+            this.roundDuration = parseFloat(document.getElementById('setting-duration').value) || 30.0;
+        }
+        if (document.getElementById('setting-speed')) {
+            this.speedMultiplier = parseFloat(document.getElementById('setting-speed').value) || 1.0;
+            this.moveSpeed = this.baseMoveSpeed * this.speedMultiplier;
+        }
+        this.roundTimer = this.roundDuration;
         
         // Reset Day/Night Cycle based on final setting
         if (this.settings.timeMode === 'day') {
@@ -658,7 +674,7 @@ class GameEngine {
                         
                         this.itPlayerId = tagged.id;
                         this.tagCooldown = 2000; // 2 seconds before next tag possible
-                        this.roundTimer = 30.0; // Reset timer!
+                        this.roundTimer = this.roundDuration; // Reset timer!
                         
                         // Freeze the new IT player for 1.5 seconds so the old IT can run
                         tagged.stunTimer = 1500;
@@ -1436,7 +1452,7 @@ window.joinLocal = function() {
         const count = (window.gameEngine.players['local1'] ? 1 : 0) + (window.gameEngine.players['local2'] ? 1 : 0);
         const max = isTouchDevice ? 1 : 2;
         const btn = document.getElementById('btn-join-local');
-        btn.innerText = `ADD LOCAL PLAYER (${count}/${max})`;
+        btn.innerText = `ADD LOCAL (${count}/${max})`;
         
         if (count >= max) {
             btn.classList.replace('bg-blue-500', 'bg-slate-600');
